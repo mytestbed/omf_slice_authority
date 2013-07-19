@@ -47,13 +47,18 @@ module OMF::SliceAuthority
 
 
     def load_test_state(options)
+      require 'omf-sfa/am/am-rest/rest_handler'
+      OMF::SFA::AM::Rest::RestHandler.set_service_name("OMF Test Slice Authority")
+
       require  'dm-migrations'
       DataMapper.auto_migrate!
 
       p1 = OMF::SFA::Resource::OReference.create(name: 'projectA',
                                         resource_type: :project,
                                         href: 'http://ch.geni.net/projects/projectA')
+      s1_uuid = UUIDTools::UUID.sha1_create(UUIDTools::UUID_DNS_NAMESPACE, 'slice1')
       s1 = OMF::SliceAuthority::Resource::Slice.create(name: 'slice1',
+                                        uuid: s1_uuid,
                                         urn: 'urn:publicid:IDN+ch.geni.net:GIMITesting+slice+slice1',
                                         expiration: Time.now + 86400,
                                         email: 'adam@acme.com',
@@ -62,22 +67,22 @@ module OMF::SliceAuthority
                                         )
       s1.aggregates << OMF::SFA::Resource::OReference.create(name: 'aggregateX',
                                         resource_type: :aggregate,
-                                        href: "http://am.orbit-lab.org/slices/#{s1.uuid}")
+                                        href: "http://#{options[:test_omf_am] || 'localhost:8004'}/slices/#{s1.uuid}")
       s1.aggregates << OMF::SFA::Resource::OReference.create(name: 'aggregateY',
                                         resource_type: :aggregate,
-                                        href: "http://am.norbit.nicta.org/slices/#{s1.uuid}")
+                                        href: "http://BOGUS.org/slices/#{s1.uuid}")
 
       s1.slice_members << OMF::SliceAuthority::Resource::SliceMember.create(name: 'member1',
                                         role: 'ADMIN')
 
-      s2 = OMF::SliceAuthority::Resource::Slice.create(name: 'slice2',
-                                        urn: 'default_slice',
-                                        expiration: Time.now + 86400,
-                                        email: 'mary@some.edu',
-                                        description: 'Mary\'s slice')
-      s3 = OMF::SliceAuthority::Resource::Slice.create(name: 'slice3',
-                                        urn: 'default_slice',
-                                        expiration: Time.now + 86400)
+      # s2 = OMF::SliceAuthority::Resource::Slice.create(name: 'slice2',
+                                        # urn: 'default_slice',
+                                        # expiration: Time.now + 86400,
+                                        # email: 'mary@some.edu',
+                                        # description: 'Mary\'s slice')
+      # s3 = OMF::SliceAuthority::Resource::Slice.create(name: 'slice3',
+                                        # urn: 'default_slice',
+                                        # expiration: Time.now + 86400)
 
 
       # require 'omf-sfa/resource/user'
@@ -93,6 +98,7 @@ module OMF::SliceAuthority
         },
         :pre_parse => lambda do |p, options|
           p.on("--test-load-state", "Load an initial state for testing") do |n| options[:load_test_state] = true end
+          p.on("--test-omf-am URL", "Top URL for Test OMF AM") do |n| options[:test_omf_am] = n end
           p.separator ""
           p.separator "Datamapper options:"
           p.on("--dm-db URL", "Datamapper database [#{options[:dm_db]}]") do |u| options[:dm_db] = u end

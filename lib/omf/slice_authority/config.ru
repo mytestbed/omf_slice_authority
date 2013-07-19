@@ -59,18 +59,18 @@ end
 
 map "/readme" do
   require 'bluecloth'
-  s = File::read(File.dirname(__FILE__) + '/../../../REST_API.md')
+  s = File::read(File.dirname(__FILE__) + '/../../../README.md')
   frag = BlueCloth.new(s).to_html
   wrapper = %{
 <html>
   <head>
-    <title>GIME Experiment Manager API</title>
+    <title>OMF Slice Authority API</title>
     <link href="/assets/css/default.css" media="screen" rel="stylesheet" type="text/css">
     <style type="text/css">
-   circle.node {
-     stroke: #fff;
-     stroke-width: 1.5px;
-   }
+      circle.node {
+        stroke: #fff;
+        stroke-width: 1.5px;
+      }
 
       line.link {
         stroke: #999;
@@ -104,10 +104,10 @@ map "/" do
     when '/'
       http_prefix = "http://#{env["HTTP_HOST"]}"
       toc = {}
-      [:slices].each do |s|
-        toc[s] = "#{http_prefix}/#{s}"
+      ['README', :slices].each do |s|
+        toc[s] = "#{http_prefix}/#{s.to_s.downcase}"
       end
-      [200 ,{'Content-Type' => 'application/json'}, "#{JSON.pretty_generate(toc)}\n"]
+      [200 ,{'Content-Type' => 'text/html'}, OMF::SFA::AM::Rest::RestHandler.convert_to_html(toc, env)]
     when '/favicon.ico'
       [301, {'Location' => '/assets/image/favicon.ico', "Content-Type" => ""}, ['Next window!']]
     else
