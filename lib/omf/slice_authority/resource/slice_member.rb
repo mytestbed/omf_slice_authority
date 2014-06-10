@@ -9,6 +9,7 @@ module OMF::SliceAuthority::Resource
   class SliceMember < OMF::SFA::Resource::OResource
 
     oproperty :slice, :slice, inverse: :slice_members
+    oproperty :user, :user, inverse: :slice_members
     oproperty :role, String
 
     def resource_type

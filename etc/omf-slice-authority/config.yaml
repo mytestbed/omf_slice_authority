@@ -1,1 +1,13 @@
-gimi_exp_service:
+
+slice_authority:
+  sfa:
+    clearing_house: https://ch.geni.net/SA
+    x509:
+      cert: certs/urn:publicid:IDN+ch.geni.net+tool+job_service.testing.local.pem
+      key: certs/testing.local.key
+      ca: certs/trusted_roots.pem
+
+      cert: /Users/max/.gcf/max-geni.key.cert
+      key: /Users/max/.gcf/max-geni.key.cert
+      ca: /Users/max/.gcf/trusted_roots/GPO.crt
+

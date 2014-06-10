@@ -10,7 +10,7 @@ module OMF::SliceAuthority::Resource
 
     oproperty :manifest, String  # actually XML
     oproperty :expiration, DataMapper::Property::Time
-    oproperty :creation, DataMapper::Property::Time
+    oproperty :created_at, DataMapper::Property::Time
     oproperty :description, String
     oproperty :email, String
     oproperty :project, :reference, type: :project
@@ -38,7 +38,7 @@ module OMF::SliceAuthority::Resource
 
     def initialize(opts)
       super
-      self.creation = Time.now
+      self.created_at = Time.now
     end
   end # classs
 end # module
