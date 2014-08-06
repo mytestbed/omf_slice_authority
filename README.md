@@ -95,7 +95,7 @@ To get a listing of all the know authorities, run the following:
 Exploring the Service with a Web Browser
 ----------------------------------------
 
-Just point your browser at http://localhost:8006/
+Just point your browser at (http://localhost:8006)
 
 Debugging Hints
 ---------------
