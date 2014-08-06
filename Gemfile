@@ -10,6 +10,8 @@ end
 
 gem 'omf_base', override_with_local('../omf_base')
 gem 'omf_sfa', override_with_local('../omf_sfa')
+gem 'dm-noisy-failures'
+
 gem 'god'
 
 gem 'thin_async'

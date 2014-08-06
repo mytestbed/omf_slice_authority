@@ -10,7 +10,7 @@ Installation
 
 At this stage the best course of action is to clone the repository
 
-    git clone https://github.com/mytestbed/omf_slice_authority.git
+    git clone https://github.com/mytestbed/omf_slice_service.git
     cd omf_job_service
 
 This service requires 'ruby1.9.3' provided by RVM. If you don't have one in this account, install it with:
@@ -43,7 +43,7 @@ Starting the Service
 
 To start a job service from this directory, run the following:
 
-    cd omf_slice_authority
+    cd omf_slice_service
     rake run
 
 which should result in something like:
@@ -65,4 +65,13 @@ resources. To list all slices:
     $ curl http://localhost:8006/slices
     {
     }
+
+Debugging Hints
+---------------
+
+Verifying that public and private key belong together (http://stackoverflow.com/a/280912/3528225)
+
+    Certificate: openssl x509 -noout -modulus -in server.crt | openssl md5
+    Private Key: openssl rsa -noout -modulus -in server.key | openssl md5
+    CSR: openssl req -noout -modulus -in server.csr | openssl md5
 

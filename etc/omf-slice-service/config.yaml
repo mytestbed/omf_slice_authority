@@ -1,7 +1,9 @@
 
-slice_authority:
+slice_service:
   sfa:
+    authority_list: https://flsmonitor.fed4fire.eu/testbeds.xml
     clearing_house: https://ch.geni.net/SA
+
     x509:
       cert: certs/urn:publicid:IDN+ch.geni.net+tool+job_service.testing.local.pem
       key: certs/testing.local.key
@@ -10,4 +12,8 @@ slice_authority:
       cert: /Users/max/.gcf/max-geni.key.cert
       key: /Users/max/.gcf/max-geni.key.cert
       ca: /Users/max/.gcf/trusted_roots/GPO.crt
+
+      cert: certs/testing.local.key
+      key: certs/testing.local.key
+      ca: certs/trusted_roots.crt
 
