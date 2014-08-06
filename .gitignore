@@ -1,2 +1,8 @@
 .project
 Gemfile.lock
+.DS_Store
+.bundle/
+.idea/
+bin/omf_slice_service
+etc/omf-slice-service/certs
+vendor
