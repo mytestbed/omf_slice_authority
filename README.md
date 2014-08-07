@@ -59,10 +59,12 @@ which should result in something like:
 Testing REST API
 ----------------
 
+### User
+
 If you started the service with the '--test-load-state' option, the service got preloaded with a few
 resources. To list all users:
 
-    $ curl http://localhost:8006/users
+    % curl http://localhost:8006/users
     [
       {
         "uuid": "22ccd749-9b67-41ee-9de2-afee6ad0457c",
@@ -71,6 +73,54 @@ resources. To list all users:
         "type": "user"
       }
     ]
+    
+To create a new user:
+
+    % curl -X POST -H "Content-Type: application/json" \
+         -d '{"urn":"urn:publicid:IDN+ch.geni.net+user+johnsmith"}' \
+         http://localhost:8006/users
+    {
+      "type": "user",
+      "uuid": "8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
+      "href": "http://bleeding.mytestbed.net:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
+      "name": "johnsmith"
+    }
+    
+To add a speaks-for credential to a user, POST it to /speaks_for/user_uuid
+
+    curl -X POST -d @john_speaks_for.xml http://localhost:8006/speaks_for/8f2f5110-c0b4-4e31-baf9-615f5bc75a43
+
+### Slices
+
+To get a listing of all the active slices a user is a member of:
+
+    % curl http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43/slice_members
+    [
+      {
+        "uuid": "4e24817c-5248-4509-8122-e49e60bada49",
+        "href": "http://bleeding.mytestbed.net:8006/slice_members/4e24817c-5248-4509-8122-e49e60bada49",
+        "name": "bob",
+        "type": "slice_member",
+        "status": "unknown",
+        "role": "MEMBER",
+        "slice_urn": "urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+bob",
+        "user_urn": "urn:publicid:IDN+ch.geni.net+user+maxott"
+      },
+      ...
+      
+Please be prepared to receive a '504' HTTP response, requesting you to try again in a few seconds. This
+happens when the service is requesting an update from the respective SFA authorities.
+
+    % curl -v http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43/slice_members
+    ...
+    < HTTP/1.1 504 Gateway Time-out
+    ...
+    {
+      "type": "retry",
+      "delay": 3
+    }
+    
+### Authorities
 
 To get a listing of all the know authorities, run the following:
 
