@@ -145,14 +145,15 @@ To get a listing of all the know authorities, run the following:
 Exploring the Service with a Web Browser
 ----------------------------------------
 
-Just point your browser at [http://localhost:8006]()
+Just point your browser at [http://localhost:8006](/)
 
 Debugging Hints
 ---------------
 
-Verifying that public and private key belong together [http://stackoverflow.com/a/280912/3528225]()
+Verifying that public and private key belong together [[0](http://stackoverflow.com/a/280912/3528225)]
 
     Certificate: openssl x509 -noout -modulus -in server.crt | openssl md5
     Private Key: openssl rsa -noout -modulus -in server.key | openssl md5
     CSR: openssl req -noout -modulus -in server.csr | openssl md5
+
 
