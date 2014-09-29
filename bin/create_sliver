@@ -1,0 +1,112 @@
+#!/usr/bin/env ruby
+
+# $0 --name foo200 -- simple_test.oedl --more a --foo xx@node -x
+
+require "zlib"
+require "json"
+require 'optparse'
+require 'base64'
+require 'net/http'
+require 'open-uri'
+require 'uuid'
+
+$verbose = false
+
+slice_name = nil
+user = nil
+project = nil
+role = nil
+url = 'http://localhost:8006'
+
+optparse = OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} [options] topoFile"
+
+  opts.on('-s', '--slice NAME', 'Name of slice' ) do |n|
+    slice_name = n
+  end
+
+  opts.on('-u', '--user URN', "URN of requesting user" ) do |u|
+    user = u
+  end
+
+  opts.on('', '--url URL', "URL for slice service [#{url}]" ) do |u|
+    url = u
+  end
+
+  opts.on('-v', '--verbose', "Print more information about what's going on. [#{$verbose}]" ) do |url|
+    $verbose = true
+  end
+  opts.on( '-h', '--help', 'Display this screen' ) do
+    puts opts
+    exit
+  end
+end
+optparse.parse!
+
+unless user
+  puts "ERROR: Missing user\n"
+  puts optparse
+  abort
+end
+unless slice_name
+  puts "ERROR: Missing slice name\n"
+  puts optparse
+  abort
+end
+
+# Next argument should be script file
+unless ARGV.length == 1
+  puts "ERROR: Missing topo file\n"
+  puts optparse
+  abort
+end
+graphFile = ARGV.shift
+unless File.readable? graphFile
+  puts "ERROR: Can't read graph file '#{graphFile}' - #{ARGV}"
+  abort
+end
+gf = File.read(graphFile).strip
+if gf[0] == '{'
+  graph = {
+    mime_type: 'application/gjson',
+    content: JSON.parse(gf)
+  }
+elsif gf[0] == '<'
+  graph = {
+    mime_type: 'text/xml',
+    encoding: 'uri',
+    content: URI::encode(gf)
+  }
+end
+
+uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name)
+req = {
+  #_request_id: UUID.new.generate,
+  topology: graph
+}
+
+# OK, time ot post it
+if $verbose
+  puts "Sending the following request to '#{uri}'"
+  puts JSON.pretty_generate(req)
+end
+
+def make_request(uri, body, request_id)
+  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+#req.basic_auth @user, @pass
+  req.body = body
+  req['X-Request-ID'] = request_id
+  response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
+  if Integer(response.code) == 504
+    b = JSON.parse(response.body)
+    delay = b['delay'] || 10
+    delay = 10 if delay < 10
+    puts ".. retry again in - #{delay}"
+    sleep delay
+    return make_request(uri, body, request_id)
+  end
+  puts "#{response.code} #{response.message}:\n#{response.body}"
+end
+
+make_request(uri, JSON.pretty_generate(req), UUID.new.generate)
+
