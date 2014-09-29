@@ -5,11 +5,21 @@ require 'open-uri'
 require 'em-http'
 
 module OMF::SliceService::Resource
+  class UnknownAuthorityException < OMF::SliceService::SliceServiceException; end
 
   # This class represents a specific authority in the system.
   #
   class Authority < OMF::SFA::Resource::OResource
 
+    AUTHORITY_TYPES = [
+      'slice_authority_1',
+      'aggregate_manager_1', 'aggregate_manager_2', 'aggregate_manager_3',
+      'planetlab_registry_1',
+      'scs_1',
+      'geni_ch_ma_2',
+      'geni_ch_sa_2',
+      'occi_1'
+    ]
 
     # <authority xmlns="http://jfed.iminds.be/authority">
       # <urn>urn:publicid:IDN+wall1.ilabt.iminds.be+authority+cm</urn>
@@ -30,12 +40,12 @@ module OMF::SliceService::Resource
       # <pemSslTrustCert>....</pemSslTrustCert>
     # </authority>
 
-    oproperty :server_url, String  # actually URL
-    oproperty :role, String  # 'slice', 'aggregate'
-    oproperty :version, String  # int?
-    oproperty :authority_type, String
+    oproperty :auth_type, String
     oproperty :reconnect_each_time, :bool # don't know what that means
     oproperty :cert, String, :length => 1000 # actually PEM
+    AUTHORITY_TYPES.each do |at|
+      oproperty at, String
+    end
 
     def self.parse_from_url(url)
       info "Fetching authority list from '#{url}'"
@@ -53,24 +63,45 @@ module OMF::SliceService::Resource
         doc.elements.each("*/authority") do |el|
           urn = (e = el.elements['urn']) ? e.text : nil
           next if self.first(urn: urn)
-          hrn = (e = el.elements['hrn']) ? e.text : nil
-          type = (e = el.elements['type']) ? e.text : nil
-          reconnect_each_time = (e = el.elements['reconnectEachTime']) ? e.text == 'true' : true
-          cert = (e = el.elements['pemSslTrustCert']) ? e.text : nil
+
+          opts = {urn: urn, reconnect_each_time: true}
+          [['hrn', :name], ['type', :auth_type], ['reconnectEachTime', :reconnect_each_time], ['pemSslTrustCert', :cert]].each do |e|
+            if e.is_a? Array
+              el_name, key = e
+            else
+              el_name = e
+              key = e.to_sym
+            end
+            if e = el.elements[el_name]
+              case key
+              when :reconnect_each_time
+                value = (e.text == 'true')
+              else
+                value = e.text
+              end
+              opts[key] = value
+            end
+          end
+
+          # hrn = (e = el.elements['hrn']) ? e.text : nil
+          # type = (e = el.elements['type']) ? e.text : nil
+          # reconnect_each_time = (e = el.elements['reconnectEachTime']) ? e.text == 'true' : true
+          # cert = (e = el.elements['pemSslTrustCert']) ? e.text : nil
           el.elements.each('urls/serverurl') do |sel|
             if e = sel.elements['servertype']
                role = (e.attributes['role'] || 'Unknown').downcase
-               version = e.attributes['version']
-            end
-            url = (e = sel.elements['url']) ? e.text : nil
-            #puts ">>>> #{role}-#{version} -- #{url} - \n#{cert}\n"
-            #puts ">>>> #{role}-#{version} -- #{url}"
-            unless self.first(urn: urn)
-              info "Discovered new authority: '#{hrn || 'Unknown'}' - #{urn}"
-              self.create(name: hrn || urn, urn: urn, server_url: url, role: role, version: version, authority_type: type,
-                          reconnect_each_time: reconnect_each_time, cert: cert)
+               version = e.attributes['version'] || 1
+               name = "#{role.gsub(' ', '_')}_#{version}"
+               url = (e = sel.elements['url']) ? e.text : nil
+               if AUTHORITY_TYPES.include?(name)
+                 opts[name.to_sym] = url
+               else
+                 warn "Ignoring service '#{name}' for authority '#{urn}'"
+               end
             end
           end
+          info "Discovered new authority: '#{opts[:name] || 'Unknown'}' - #{urn}"
+          self.create(opts)
         end
       end
     end

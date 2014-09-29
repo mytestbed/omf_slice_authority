@@ -2,6 +2,7 @@
 require 'omf-sfa/am/am-rest/rest_handler'
 require 'omf/slice_service/resource'
 require 'omf/slice_service/slice_member_handler'
+require 'omf/slice_service/sliver_handler'
 
 module OMF::SliceService
 
@@ -16,7 +17,8 @@ module OMF::SliceService
       # Define handlers
       opts[:slice_handler] = self
       @coll_handlers = {
-        slice_members: (opts[:slice_member_handler] || SliceMemberHandler.new(opts))
+        slice_members: (opts[:slice_member_handler] || SliceMemberHandler.new(opts)),
+        slivers: (opts[:sliver_handler] || SliverHandler.new(opts))
       }
     end
 

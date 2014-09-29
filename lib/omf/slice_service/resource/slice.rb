@@ -1,9 +1,12 @@
 require 'omf/slice_service/resource'
-require 'omf-sfa/resource/oresource'
+require 'omf/slice_service/resource/sliver'
+#require 'omf-sfa/resource/oresource'
+require 'omf-sfa/util/graph_json'
 require 'time'
 require 'open-uri'
 
 module OMF::SliceService::Resource
+  class SliceCreationPendingException < OMF::SliceService::SliceServiceException; end
 
   # This class represents a slice in the system.
   #
@@ -13,51 +16,14 @@ module OMF::SliceService::Resource
     oproperty :expiration, DataMapper::Property::Time
     oproperty :created_at, DataMapper::Property::Time
     oproperty :description, String
+    oproperty :rspec, String
     oproperty :email, String
     oproperty :project, :reference, type: :project
-    oproperty :aggregates, :reference, type: :project, functional: false
+    #oproperty :aggregates, :reference, type: :project, functional: false
+    oproperty :slivers, :reference, type: :sliver, functional: false
     oproperty :slice_members, :slice_member, functional: false, inverse: :slice
+    oproperty :slice_creation_pending, :boolean
 
-    def self.sfa_create_for_user(user, slice_descr, throw_retry_on_pending = true, &on_done)
-      raise unless user # intenral bug if that is being called without user
-      debug "SFA class to create slice '#{slice_descr}' for '#{user}'"
-      #Slice.create(slice_descr)
-      unless urn_s = slice_descr[:urn]
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Missing slice URN"
-      end
-      urn = OMF::SFA::Resource::GURN.create(urn_s)
-      fields = {
-        SLICE_NAME: urn.short_name,
-        SLICE_DESCRIPTION: slice_descr[:description] || 'None'  ,
-        SLICE_EMAIL: user.email,
-        SLICE_PROJECT_URN: slice_descr[:project],
-      }
-      fields.each {|key, value| fields.delete(key) if value.nil? }
-      opts = { fields: fields, speaking_for: user.urn }
-      OMF::SliceService::SFA.instance.call2(['create', 'SLICE', :CERTS, opts], user, throw_retry_on_pending) do |success, res|
-        #success, res = client.call2('create', 'SLICE', certs, opts)
-        if success && res['code'] == 0
-          opts = {}
-          value = res['value']
-          # "SLICE_PROJECT_URN" "SLICE_NAME" "SLICE_EXPIRED" "SLICE_URN" "SLICE_UID" "_GENI_SLICE_OWNER" "_GENI_SLICE_EMAIL"
-          # "SLICE_DESCRIPTION" "SLICE_EXPIRATION":#<XMLRPC::DateTime> "SLICE_CREATION"=>#<XMLRPC::DateTime>
-          [['SLICE_NAME', :name], ['SLICE_UID', :uuid], ['SLICE_URN', :urn], ['SLICE_EXPIRED', :expiration],
-           ['SLICE_CREATION', :created_at], ['_GENI_SLICE_EMAIL', :email],
-          #['_GENI_SLICE_OWNER', :user_uuid], ['_GENI_PROJECT_UID', :project_uuid],
-          ].each do |key, prop|
-            if val = value[key]
-              opts[prop] = val
-            end
-          end
-          debug "Creating slice object: #{opts}"
-          slice = Slice.create(opts)
-          on_done.call(:OK, slice) if on_done
-        else
-          on_done.call(:ERROR, res) if on_done
-        end
-        #on_done.call(res[1]) if on_done
-      end
-    end
 
     def expired?
       self.expiration < Time.now
@@ -78,53 +44,80 @@ module OMF::SliceService::Resource
     end
 
     def topology=(topo)
-      #puts ">>>>> TOPOLOGY - #{topo}"
+      set_topology(topo)
+    end
+
+    def set_topology(topo, slice_member = nil)
+      # if self.slice_creation_pending
+      #   raise SliceCreationPendingException.new
+      # end
+      promise = OMF::SFA::Util::Promise.new
+      puts ">>>>> TOPOLOGY(#{topo.class}) - #{topo.to_s[0 .. 80]}"
 
       # OK, we should check if this is the identical to previous
+      rspec = nil
       if topo.is_a? Hash
-        case mt = topo[:mime_type] || 'gjson'
-        when 'gjson'
-          OMF::SFA::AM::Rest::UnsupportedMethodException.new "Can't handle topologies in GraphJSON format yet"
 
-        when 'xml'
-          rspec = topo[:content]
-          case encoding = topo[:encoding]
-          when 'uri'
-            rspec = URI::decode(rspec)
-          else
-            OMF::SFA::AM::Rest::UnsupportedMethodException.new "Unsupported content encoding '#{encoding}'."
+        case mt = topo[:mime_type] || 'application/gjson'
+        when 'application/gjson'
+          User.transaction do |t|
+            r = OMF::SFA::Util::GraphJSON.parse(topo[:content])
+            rspec = OComponent.to_rspec(r.values, :request)
+            puts "RES>>>> #{rspec}"
+            t.rollback
           end
 
+        when 'text/xml'
+          rspec_s = topo[:content]
+          case encoding = topo[:encoding]
+          when 'uri'
+            rspec_s = URI::decode(rspec_s)
+          else
+            raise OMF::SFA::AM::Rest::BadRequestException.new "Unsupported content encoding '#{encoding}'."
+          end
+          rspec = Nokogiri::XML(rspec_s)
         else
-          OMF::SFA::AM::Rest::UnsupportedMethodException.new "Unsupported content mime-type '#{mt}'."
+          raise OMF::SFA::AM::Rest::BadRequestException.new "Unsupported content mime-type '#{mt}'."
         end
 
-        puts "UUUUUSSSER>> #{Thread.current[:speaking_for]} -- #{rspec}"
-        return
+      else
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Topology description needs to be a hash"
+      end
+      current_rspec = self.rspec
+      if (current_rspec && current_rsepc == rspec) # same
+        return promise.resolve(current_rspec)
       end
 
+      # Request resources!
+      unless slice_member
+        raise OMF::SFA::AM::Rest::BadRequestException.new("Can't determine user for which to request resources")
+      end
+      user = slice_member.user
 
-      fields = {
-        SLICE_NAME: urn.short_name,
-        SLICE_DESCRIPTION: slice_descr[:description] || ''  ,
-        SLICE_EMAIL: self.email,
-        SLICE_PROJECT_URN: slice_descr[:project],
-      }
-      fields.each {|key, value| fields.delete(key) if value.nil? }
-      opts = { fields: fields, speaking_for: self.urn }
-      OMF::SliceService::SFA.instance.call(self.speaks_for) do |client, certs|
+
+      cms = rspec.xpath('//n:*[@component_manager_id]', n: 'http://www.geni.net/resources/rspec/3').map do |e|
+        e['component_manager_id']
+      end.to_set
+      if cms.empty?
+        raise OMF::SFA::AM::Rest::BadRequestException.new("Can't find a reference to a component manager (component_manager_id)")
       end
 
+      self.slice_creation_pending = true
+      # first release all existing slivers
+      self.slivers.each {|s| s.release! }
+      self.slivers.clear
 
-
-# Allocate(string slice_urn,
-         # struct credentials[],
-         # geni.rspec rspec,
-         # struct options)
+      puts ">>> CMS: #{cms.inspect}"
+      cms.each do |cm|
+        puts ">>> CM: #{cm}"
+        self.slivers << Sliver.create_for_component_manager(cm, rspec, slice_member)
+      end
+      promise.resolve(self.slivers.to_a)
+      promise
     end
 
     alias :_slice_members :slice_members
-    def slice_members()
+    def slice_members(refresh = false)
       # there is a bug in the delete logic regarding non-functional objects
       _slice_members.compact
     end
@@ -147,6 +140,7 @@ module OMF::SliceService::Resource
     def initialize(opts)
       super
       self.created_at = Time.now
+      self.slice_creation_pending = false
     end
   end # classs
 end # module

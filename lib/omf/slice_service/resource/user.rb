@@ -1,15 +1,22 @@
 require 'omf/slice_service/resource'
 require 'omf-sfa/resource/oresource'
+require 'omf/slice_service/request_context'
+
+require 'omf/slice_service/task'
+
 require 'time'
 require 'em-synchrony'
+
+include OMF::SliceService
 
 module OMF::SliceService::Resource
 
   # This class represents a slice in the system.
   #
   class User < OMF::SFA::Resource::OResource
-    SLICE_CHECK_INTERVAL = 300 #600 # after what time should we check again for slices
+    SLICE_CHECK_INTERVAL = 600 # after what time should we check again for slices
     DEF_SLICE_MEMBERSHIP_ROLE = 'MEMBER'
+    SSH_CHECK_INTERVAL = 600
 
     oproperty :created_at, DataMapper::Property::Time
     oproperty :speaks_for, String
@@ -17,44 +24,85 @@ module OMF::SliceService::Resource
     oproperty :email, String
     oproperty :slice_members, :slice_member, functional: false, inverse: :user
     oproperty :slices_checked_at, DataMapper::Property::Time
+    oproperty :ssh_keys, String
+    oproperty :ssh_keys_checked_at, DataMapper::Property::Time
 
     def authorized?
       self.authorized_until != nil && self.authorized_until < Time.now
     end
 
+    def find_slice_member(slice_uri)
+      if UUID.validate(slice_uri)
+        key = :uuid; value = slice_uri
+      elsif slice_uri.start_with?('urn')
+        key = :urn; value  = slice_uri
+      else
+        key = :name; value = slice_uri
+      end
+      promise = OMF::SFA::Util::Promise.new
+      slice_members.on_success do |sma|
+        ssm = sma.find do |sm|
+          if key == :uuid
+            # UUID of slice_member, not slice
+            sm.uuid.to_s == value
+          else
+            sm.slice.send(key) == value
+          end
+        end
+        puts "SMEMBERS FOUND>>> #{ssm.inspect}"
+        ssm ? promise.resolve(ssm) : promise.reject("Unknown slice member '#{slice_uri}' for user '#{self.urn}'")
+      end.on_error(promise)
+      promise
+    end
+
     def create_slice_membership(description)
+      #OMF::SliceService::Task::CreateSliceMembership(self, description)
+
+      promise = OMF::SFA::Util::Promise.new
+      debug "Creating/updating a slice membership for user '#{self.name}' - urn: #{description[:urn]}"
       role = description[:role] || DEF_SLICE_MEMBERSHIP_ROLE
-      slice_name = description[:slice]
+      slice_name = description.delete(:slice) # needs to replaced by slice record if needed
       project_name = description[:project]
       unless role && slice_name && project_name
         raise OMF::SFA::AM::Rest::BadRequestException.new "Missing any of properties 'role', 'slice', 'project'"
       end
 
-      p = OMF::SFA::Resource::GURN.create project_name
+      begin
+        p = OMF::SFA::Resource::GURN.create project_name, fail_null: true
+      rescue OMF::SFA::Resource::GurnMalformedException => ex
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Malformed project urn - #{ex}"
+      end
       domain = "#{p.domain}:#{p.short_name}"
       slice_urn = OMF::SFA::Resource::GURN.new(slice_name, :slice, domain)
 
       # Check if it already exists
-      membership = nil
-      slice_members do |sma|
+      slice_members.on_success do |sma|
+        Thread.current[:speaking_for] = self
+        membership = nil
         surn = slice_urn.to_s
         membership = sma.find {|sm| sm.slice.urn == surn }
-        next if membership # done
-
-        # now check if we already have a slice
-        if slice = Slice.first(urn: slice_urn)
-          puts "SLICE ALREADY EXISTS - should ask for joining"
-          membership = SliceMember.create(slice: slice, user: self, role: role)
+        if membership
+          debug "Found existing slice membership: #{membership}"
+          description.delete(:user) # should not be attempting to set user
+          membership.update(description)
+          membership.save
         else
-          Slice.sfa_create_for_user self, {urn: slice_urn, project: project_name}, false do |code, slice|
-            puts ">>> SLICE CREATED(#{code}): #{slice}"
-            if code == :OK
-              sm = SliceMember.create(slice: slice, user: self, role: role)
-            end
+          # now check if we already have a slice
+          if slice = OMF::SliceService::Resource::Slice.first(urn: slice_urn)
+            warn "SLICE ALREADY EXISTS - should ask for joining"
+            membership = SliceMember.create(slice: slice, user: self, role: role)
+          else
+            Task::CreateSliceForUser(self, {urn: slice_urn, project: project_name}) \
+            .on_success do |slice|
+              puts ">>> SLICE CREATED(#{slice}"
+              sm = SliceMember.create(name: slice_name, slice: slice, user: self, role: role)
+              promise.resolve(sm)
+            end.on_error(promise)
           end
         end
+        promise.resolve(membership) if membership
       end
-      membership || raise(OMF::SFA::AM::Rest::RetryLaterException.new)
+      promise
     end
 
     def remove_slice_membership(slice_member)
@@ -108,67 +156,75 @@ module OMF::SliceService::Resource
 
 
     alias :_slice_members :slice_members
-    def slice_members(refresh = false, &callback)
-      #puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at}"
+    def slice_members(refresh = false)
+      puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at} - #{refresh}"
+      promise = OMF::SFA::Util::Promise.new
       min_time = 30 # make sure we don't overload the server here
       if (Time.now - (self.slices_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
         self.slices_checked_at = Time.now
-        #puts ">>>> NEED TO CHECK FOR SLICES"
-        opts = {
-          match: { SLICE_EXPIRED: false },
-          #match: { SLICE_EXPIRED: true },
-          speaking_for: self.urn # 'urn:publicid:IDN+ch.geni.net+user+maxott'
-        }
-        OMF::SliceService::SFA.instance.call2(['lookup_slices_for_member', self.urn, :CERTS, opts], self) do |success, res|
-          if success
-            current_sms = {}
-            self._slice_members.each do |sm|
-              next unless sm # skip nil values - TODO: Bug in OProperty non-functional when DELETE
-              slice_uuid = sm.slice.uuid.to_s
-              #puts "KNOWN>> #{sm.slice.urn} - #{slice_uuid}::#{slice_uuid.class}"
-              current_sms[slice_uuid] = sm
-            end
-            res['value'].each do |smd|
-              slice_uuid = smd['SLICE_UID']
-              slice_urn = smd["SLICE_URN"]
-              if sm = current_sms[slice_uuid]
-                # we already know about, maybe update state?
-                current_sms.delete(slice_uuid)
-                sm.role = smd["SLICE_ROLE"]
-                sm.save
-              else
-                #puts "MISSING>> #{slice_urn} - #{slice_uuid}::#{slice_uuid.class}"
-                # a new one.
-                unless slice = Slice.first(uuid: slice_uuid)
-                  # new slice discovered
-                  slice = Slice.create(uuid: slice_uuid, urn: slice_urn)
-                end
-                name = OMF::SFA::Resource::GURN.create(slice.urn).short_name
-                sm = SliceMember.create(name: name, role: smd["SLICE_ROLE"], slice: slice, user: self)
-              end
-            end
-            current_sms.values.each {|sm| sm.destroy} # remove slice members no longer active
-            slice_members(false, &callback) if callback
+        puts ">>>> NEED TO CHECK FOR SLICES"
+        OMF::SliceService::Task::LookupSlicesForMember(self, ) \
+        .on_error { |*msgs| promise.reject(*msgs) } \
+        .on_success do |slices|
+          # 'slices' is really [[slice, role], ...]
+          current_sms = {}
+          self._slice_members.each do |sm|
+            next unless sm # skip nil values - TODO: Bug in OProperty non-functional when DELETE
+            slice_uuid = sm.slice.uuid
+            current_sms[slice_uuid] = sm
           end
+          slices.each do |slice, role|
+            slice_uuid = slice.uuid
+            if sm = current_sms[slice_uuid]
+              # we already know about, maybe update state?
+              current_sms.delete(slice_uuid)
+              sm.role = role
+              sm.save
+            else
+              name = OMF::SFA::Resource::GURN.create(slice.urn).short_name
+              sm = SliceMember.create(name: name, role: role, slice: slice, user: self)
+            end
+          end
+          current_sms.values.each {|sm| sm.destroy} # remove slice members no longer active
+          sm = _slice_members.compact
+          promise.resolve(sm)
         end
-        nil # need to wait
       else
         sm = _slice_members.compact
-        callback.call(sm) if callback
-        sm
+        promise.resolve(sm)
       end
+      promise
+    end
+
+    alias :_ssh_keys :ssh_keys
+    def ssh_keys(refresh = false)
+      promise = OMF::SFA::Util::Promise.new
+      min_time = 30 # make sure we don't overload the server here
+      if (Time.now - (self.ssh_keys_checked_at || 0)).to_i > (refresh ? min_time : SSH_CHECK_INTERVAL)
+        self.ssh_keys_checked_at = Time.now
+        OMF::SliceService::Task::LookupMemberSSHKeys(self) \
+        .on_error { |*msgs| promise.reject(*msgs) } \
+        .on_success do |keys|
+          self.ssh_keys = keys.to_json
+          promise.resolve(keys)
+        end
+      else
+        keys = JSON.parse(_ssh_keys || '[]')
+        promise.resolve(keys)
+      end
+      promise
     end
 
     def to_hash_long(h, objs, opts = {})
       super
       h[:urn] = self.urn || 'unknown'
       h[:authorized] = self.authorized?
-      h
+      h[:ssh_keys] = ssh_keys()
     end
 
     def to_hash_brief(opts = {})
       h = super
-      #h[:urn] = self.urn || 'unknown'
+      h[:urn] = self.urn || 'unknown'
       h
     end
 
@@ -178,40 +234,5 @@ module OMF::SliceService::Resource
 
       self.created_at = opts[:created_at] || Time.now
     end
-
-    # def sfa_call(&block)
-      # url = "https://ch.geni.net/SA"
-      # client = XMLRPC::Client.new2(url)
-      # client.ssl_options = {
-        # private_key_file: '/Users/max/src/omf_slice_service/etc/omf-slice-authority/certs/testing.local.key',
-        # cert_chain_file: '/Users/max/src/omf_slice_service/etc/omf-slice-authority/certs/testing.local.key',
-        # verify_peer: false,
-#
-        # # only for non-EM mode
-        # ca_file: '/Users/max/src/omf_slice_service/etc/omf-slice-authority/certs/trusted_roots.crt'
-      # }
-      # certs = []
-      # if speaks_for = self.speaks_for
-        # certs << {
-          # geni_type: 'geni_abac',
-          # geni_version: 1,
-          # geni_value: speaks_for
-        # }
-      # end
-      # #EventMachine.synchrony.sync do
-      # running = true
-      # Fiber.new do
-        # begin
-          # block.call(client, certs)
-        # rescue Exception => ex
-          # warn "ERROR: #{ex}"
-          # debug ex.backtrace.join("\n\t")
-        # end
-        # running = false
-      # end.resume
-      # if running
-        # raise OMF::SFA::AM::Rest::RetryLaterException.new
-      # end
-    # end
   end # classs
 end # module

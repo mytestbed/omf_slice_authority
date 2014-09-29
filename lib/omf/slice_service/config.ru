@@ -17,10 +17,14 @@ require 'omf-sfa/resource/oresource'
 ActiveSupport::Inflector.inflections.irregular('slice', 'slices')
 OMF::SFA::Resource::OResource.href_resolver do |res, o|
   rtype = res.resource_type.to_sym
-  unless [:slice, :user, :slice_member, :authority].include?(rtype)
+  unless [:slice, :sliver, :user, :slice_member, :authority].include?(rtype)
     rtype = :resource
   end
-  "http://#{Thread.current[:http_host]}/#{rtype.to_s.pluralize}/#{res.uuid}"
+  if rtype == :slice_member
+    "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_members/#{res.uuid}"
+  else
+    "http://#{Thread.current[:http_host]}/#{rtype.to_s.pluralize}/#{res.uuid}"
+  end
 end
 
 opts = OMF::Base::Thin::Runner.instance.options
@@ -72,6 +76,11 @@ map '/slices' do
   run opts[:slice_handler] || OMF::SliceService::SliceHandler.new(opts)
 end
 
+map '/slivers' do
+  require 'omf/slice_service/sliver_handler'
+  run opts[:sliver_handler] || OMF::SliceService::SliverHandler.new(opts)
+end
+
 map '/users' do
   require 'omf/slice_service/user_handler'
   run opts[:user_handler] || OMF::SliceService::UserHandler.new(opts)
@@ -87,6 +96,11 @@ map '/authorities' do
   run opts[:authority_handler] || OMF::SliceService::AuthorityHandler.new(opts)
 end
 
+map '/promises' do
+  require 'omf-sfa/am/am-rest/promise_handler'
+  run OMF::SFA::AM::Rest::PromiseHandler.new(opts)
+end
+
 
 map '/speaks_for' do
   p = lambda do |env|
@@ -98,7 +112,7 @@ map '/speaks_for' do
     user = OMF::SliceService::Resource::User.first(q)
     #puts "USER: #{user}"
     unless user
-      [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
+      return [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
     end
     case req.request_method
     when 'GET'
@@ -122,6 +136,27 @@ map '/speaks_for' do
       user.speaks_for = nil
       user.save
       [200, {'Content-Type' => 'text'}, 'OK']
+    end
+  end
+  run p
+end
+
+map '/slice_credentials' do
+  p = lambda do |env|
+    req = ::Rack::Request.new(env)
+    obj_id = req.path_info.split('/')[-1]
+    q = OMF::SFA::AM::Rest::RestHandler.parse_resource_uri(obj_id)
+    sm = OMF::SliceService::Resource::SliceMember.first(q)
+    unless sm
+      return [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
+    end
+    case req.request_method
+    when 'GET'
+      if cred = sm.slice_credential.to_s
+        [200, {'Content-Type' => 'text'}, cred]
+      else
+        [204, {}, '']
+      end
     end
   end
   run p

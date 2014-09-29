@@ -18,7 +18,7 @@ module OMF::SliceService::Resource
       puts ">>>>> NEW SLICE MEMBER - #{description}"
       description[:status] = 'unknown'
       sm = super
-      sm.slice_credential(false)
+      sm.slice_credential() # initiate slice credential download
     end
 
     # def self.find_for_user(user, slice_description)
@@ -36,8 +36,11 @@ module OMF::SliceService::Resource
       'slice_member'
     end
 
-    def topology=(topo)
-      self.slice.topology = topo
+    def set_topology(topo)
+      Thread.current[:speaking_for] = self.user
+      topo = self.slice.set_topology(topo, self)
+      puts "SET_TOPO - #{topo.inspect}"
+      topo
     end
 
     def project=(project)
@@ -45,23 +48,16 @@ module OMF::SliceService::Resource
     end
 
     alias :_slice_credential :slice_credential
-    def slice_credential(throw_retry_on_pending = true, &on_done)
-      unless scred = self._slice_credential
-        user = self.user
-        opts = {
-          speaking_for: user.urn
-        }
-        # get_credentials(slice_urn, credentials, options)
-        OMF::SliceService::SFA.instance.call2(['get_credentials', self.slice.urn, :CERTS, opts], user, throw_retry_on_pending) do |success, res|
-          #puts "GET_CREDS: #{success} - #{res}"
-          if success
-            self.slice_credential = sc = res['value']
-            self.save
-            on_done.call(sc) if on_done
-          end
+    def slice_credential()
+      if scred = self._slice_credential
+        OMF::SFA::Util::Promise.new.resolve(scred)
+      else
+        OMF::SliceService::Task::GetSliceCredential(self.slice, self.user).on_success do |sc|
+          puts "SLICE_CRED>>> #{sc.inspect[0 .. 100]}"
+          self.slice_credential = sc
+          self.save
         end
       end
-      scred
     end
 
 

@@ -1,6 +1,8 @@
 
 module OMF
   module SliceService
+    class SliceServiceException < Exception; end
+
     DEF_OPTS = {
       :app_name => 'slice_service',
       :port => 8006,
@@ -23,8 +25,8 @@ module OMF
     }
 
     def self.init(opts)
-      require 'omf/slice_service/sfa'
-      SFA.init(opts)
+      require 'omf/slice_service/task/sfa'
+      Task::SFA.init(opts)
 
       # SFA.instance.call() do |client, certs|
         # success, res = client.call2('lookupAM', {})

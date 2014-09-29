@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+
+require "zlib"
+require "json"
+require 'optparse'
+require 'base64'
+require 'net/http'
+require 'open-uri'
+
+$verbose = false
+
+user_urn = nil
+speaks_for_file_name = nil
+url = 'http://localhost:8006'
+
+optparse = OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} -s speaks_for_file user_urn"
+
+  opts.on('-s', '--speaks-for FILE_NAME', 'Name of file containing speaks-for credential ("-" for stdin)' ) do |s|
+    speaks_for_file_name = s
+  end
+
+  opts.on('-u', '--url URL', "URL for slice service [#{url}]" ) do |u|
+    url = u
+  end
+
+  opts.on('-v', '--verbose', "Print more information about what's going on. [#{$verbose}]" ) do |url|
+    $verbose = true
+  end
+  opts.on( '-h', '--help', 'Display this screen' ) do
+    puts opts
+    exit
+  end
+end
+optparse.parse!
+
+unless speaks_for_file_name
+  puts "ERROR: Missing speaks-for location\n"
+  puts optparse
+  abort
+end
+unless url
+  puts "ERROR: Missing slice service url\n"
+  puts optparse
+  abort
+end
+
+# Next argument should be user urn
+puts ">>> #{ARGV.inspect}"
+unless ARGV.length == 1
+  puts "ERROR: Missing user name\n"
+  puts optparse
+  abort
+end
+user_urn = ARGV.shift
+
+if speaks_for_file_name == '-'
+  sf_cred = File.read(STDIN).strip
+else
+  unless File.readable? speaks_for_file_name
+    puts "ERROR: Can't read speaks-for file '#{speaks_for_file_name}'"
+    abort
+  end
+  sf_cred = File.read(speaks_for_file_name).strip
+end
+
+uri = URI.parse(url + '/speaks_for/' + user_urn)
+# OK, time ot post it
+if $verbose
+  puts "Posting speaks-for to '#{uri}'"
+end
+
+Net::HTTP.new(uri.host, uri.port).post2(uri.path, sf_cred, {'Content-Type' =>'text/xml'}) do |response|
+  puts "#{response.code} #{response.message}: #{response.body}"
+  exit response.code == 200 ? 0 : -1
+end
+

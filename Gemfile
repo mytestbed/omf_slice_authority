@@ -23,6 +23,7 @@ gem "em-pg-sequel"
 gem 'em-xmlrpc-client', git: 'https://github.com/maxott/em-xmlrpc-client.git', :branch => 'ssl'
 
 gem 'em-http-request'
+gem "uuid", "~> 2.3.5"
 
 # Cross domain request
 gem 'rack-cors', :require => 'rack/cors'
