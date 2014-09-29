@@ -73,7 +73,7 @@ resources. To list all users:
         "type": "user"
       }
     ]
-    
+
 To create a new user:
 
     % curl -X POST -H "Content-Type: application/json" \
@@ -85,10 +85,12 @@ To create a new user:
       "href": "http://bleeding.mytestbed.net:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
       "name": "johnsmith"
     }
-    
+
 To add a speaks-for credential to a user, POST it to /speaks_for/user_uuid
 
-    curl -X POST -d @john_speaks_for.xml http://localhost:8006/speaks_for/8f2f5110-c0b4-4e31-baf9-615f5bc75a43
+    curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_for/8f2f5110-c0b4-4e31-baf9-615f5bc75a43
+
+*Use --data-binary option to make sure the white space inside the speaks for are intact.*
 
 ### Slices
 
@@ -107,7 +109,7 @@ To get a listing of all the active slices a user is a member of:
         "user_urn": "urn:publicid:IDN+ch.geni.net+user+maxott"
       },
       ...
-      
+
 Please be prepared to receive a '504' HTTP response, requesting you to try again in a few seconds. This
 happens when the service is requesting an update from the respective SFA authorities.
 
@@ -119,7 +121,7 @@ happens when the service is requesting an update from the respective SFA authori
       "type": "retry",
       "delay": 3
     }
-    
+
 ### Authorities
 
 To get a listing of all the know authorities, run the following:
