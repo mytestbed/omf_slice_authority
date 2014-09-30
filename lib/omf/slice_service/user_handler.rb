@@ -18,9 +18,17 @@ module OMF::SliceService
       @coll_handlers = {
         slice_members: (opts[:slice_member_handler] ||= SliceMemberHandler.new(opts)),
         speaks_for: lambda do |path, opts|
-          raise OMF::SFA::AM::Rest::RedirectException.new("/speaks_for/#{opts[:resource].uuid}")
+          raise OMF::SFA::AM::Rest::RedirectException.new("/speaks_fors/#{opts[:resource].uuid}")
         end
       }
+    end
+
+    # redirect speaks_for to /speaks_for
+    def after_resource_to_hash_hook(res)
+      if res.key? :speaks_for
+        res[:speaks_for] = absolute_path("/speaks_for/#{res[:uuid]}")
+      end
+      res
     end
 
     # def _dispatch(method, target, resource_uri, opts)
@@ -41,7 +49,7 @@ module OMF::SliceService
     def _convert_obj_to_html(obj, ref_name, res, opts)
       if ref_name.to_s.include?('speaks_for')
         #puts ">>> #{opts[:context].inspect}"
-        res << "<a href='/speaks_for/#{opts[:context][:uuid]}'>...</a>"
+        res << "<a href='/speaks_fors/#{opts[:context][:uuid]}'>...</a>"
         return
       end
       super

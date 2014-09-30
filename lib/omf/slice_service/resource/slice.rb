@@ -90,7 +90,11 @@ module OMF::SliceService::Resource
 
       # Request resources!
       unless slice_member
-        raise OMF::SFA::AM::Rest::BadRequestException.new("Can't determine user for which to request resources")
+        if smp = Thread.current[:slice_member]
+          slice_member = smp.value
+        else
+          raise OMF::SFA::AM::Rest::BadRequestException.new("Can't determine user for which to request resources")
+        end
       end
       user = slice_member.user
 

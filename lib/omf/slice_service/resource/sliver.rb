@@ -11,6 +11,8 @@ module OMF::SliceService::Resource
   # This class represents a sliver in the system.
   #
   class Sliver < OMF::SFA::Resource::OResource
+    RSPEC3_NS = "http://www.geni.net/resources/rspec/3"
+
     STATUS_CHECK_INTERVAL = 60 # after what time should we check again for sliver status
 
     oproperty :status, String
@@ -20,6 +22,7 @@ module OMF::SliceService::Resource
     oproperty :log_url, String # URL provided by AM to obtain more information
     oproperty :expires_at, DataMapper::Property::Time
     oproperty :created_at, DataMapper::Property::Time
+    oproperty :provisioned_at, DataMapper::Property::Time
     oproperty :description, String
     oproperty :rspec, String
     oproperty :slice, :reference, type: :slice
@@ -32,11 +35,12 @@ module OMF::SliceService::Resource
         warn "Trying to create sliver on unknown authority '#{cm_urn}'"
         raise UnknownAuthorityException.new(cm_urn)
       end
-      sliver = self.create(authority: authority, slice: slice_member.slice)
+      sliver = self.create(authority: authority, slice: slice_member.slice, status: 'provisioning')
       sliver.slice_member = slice_member # TODO: Security alert
 
-      Task::CreateSliver(authority, rspec, slice_member).on_success do |reply|
+      Task::CreateSliver(sliver, rspec, slice_member).on_success do |reply|
         #puts ">>>>>>>>>>>>>>>>>>>>SLIVER>>>> #{reply}"
+        sliver.provisioned_at = Time.now
         sliver.manifest = m = reply[:manifest]
         if log_url = reply[:err_url]
           sliver.log_url = log_url
@@ -58,6 +62,7 @@ module OMF::SliceService::Resource
 
     alias :_status :status
     def status(refresh = false)
+      return 'provisioning' unless self.provisioned?
       return 'discarded' if discarded?
 
       #puts ">>>> GETTING STATUS - #{refresh.inspect}"
@@ -70,9 +75,12 @@ module OMF::SliceService::Resource
         self.status_checked_at = Time.now
         puts ">>>> NEED TO CHECK FOR SLICE_STATUS"
         OMF::SliceService::Task::SliverStatus(self, self.slice_member).on_success do |res|
-          puts ">>>>> SLIVER_STATUS #{res}"
+          #puts ">>>>> SLIVER_STATUS #{res}"
           ready_count = 0
           error_count = 0
+          if mf = self.manifest
+            manifest = Nokogiri::XML.parse(mf)
+          end
           self.resources = res['geni_resources'].map do |r|
             case status = r["geni_status"]
             when 'ready'
@@ -80,16 +88,20 @@ module OMF::SliceService::Resource
             else
               error_count += 1
             end
-            {
+            ssh_login = _parse_ssh_login(r["geni_client_id"], manifest)
+            res = {
               status: status,
               urn: r["geni_urn"],
-              error: r["geni_error"],
+
               client_id: r["geni_client_id"] || 'unknown'
             }
+            res[:error] = r["geni_error"] if r["geni_error"] && !r["geni_error"].empty?
+            res[:ssh_login] = ssh_login if ssh_login
+            res
           end
           self.status = status = error_count == 0 ? 'ready' : 'partial'
           if expires_s = res["pg_expires"]
-            self.expires = Time.parse(expires_s)
+            self.expires_at = Time.parse(expires_s)
           end
           self.save
           @status_promise = nil
@@ -111,12 +123,43 @@ module OMF::SliceService::Resource
       promise
     end
 
+    def _parse_ssh_login(client_id, manifest)
+      return nil unless client_id && manifest
+
+      lset = manifest.xpath "//n:*[@client_id=\"#{client_id}\"]//n:login[@authentication=\"ssh-keys\"]", n: RSPEC3_NS
+      if login = lset[0]
+        hostname = login['hostname']
+        port = login['port']
+        if hostname && port
+          return "#{hostname}:#{port}"
+        end
+      end
+      nil
+    end
+
+    # alias :_manifest= :manifest=
+    # def manifest=(manifest)
+    #   m = Nokogiri::XML.parse(manifest)
+    #   if login = (m.xpath '//n:login', n: "http://www.geni.net/resources/rspec/3")[0]
+    #     hostname = login['hostname']
+    #     port = login['port']
+    #     if hostname && port
+    #       self.ssh_login = "#{hostname}:#{port}"
+    #     end
+    #   end
+    #   _manifest = manifest
+    # end
+
     def discarded?
       self._status == 'discarded'
     end
 
     def expired?
       self.expires_at < Time.now
+    end
+
+    def provisioned?
+      self.provisioned_at != nil
     end
 
     def to_hash_long(h, objs, opts = {})

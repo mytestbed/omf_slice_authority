@@ -27,5 +27,11 @@ module OMF::SliceService
       raise OMF::SFA::AM::Rest::NotAuthorizedException.new("Slices can only be created in the context of /users/xxx/slice_members")
     end
 
+    def modify_resource(resource, description, opts)
+      sm = opts[:contexts][:slice_members]
+      Thread.current[:slice_member] = sm
+      super
+    end
+
   end
 end

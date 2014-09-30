@@ -79,7 +79,7 @@ elsif gf[0] == '<'
   }
 end
 
-uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name)
+uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice')
 req = {
   #_request_id: UUID.new.generate,
   topology: graph
@@ -91,22 +91,26 @@ if $verbose
   puts JSON.pretty_generate(req)
 end
 
-def make_request(uri, body, request_id)
+def make_request(uri, body)
   req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
-#req.basic_auth @user, @pass
+  #req.basic_auth @user, @pass
   req.body = body
-  req['X-Request-ID'] = request_id
+  #req['X-Request-ID'] = request_id
   response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
-  if Integer(response.code) == 504
+  case Integer(response.code)
+  when 504
     b = JSON.parse(response.body)
     delay = b['delay'] || 10
     delay = 10 if delay < 10
     puts ".. retry again in - #{delay}"
     sleep delay
     return make_request(uri, body, request_id)
+
+  when 302
+    puts "RESPONSE>>>> #{response.inspect}"
   end
   puts "#{response.code} #{response.message}:\n#{response.body}"
 end
 
-make_request(uri, JSON.pretty_generate(req), UUID.new.generate)
+make_request(uri, JSON.pretty_generate(req))
 

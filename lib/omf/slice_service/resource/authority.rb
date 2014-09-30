@@ -118,7 +118,7 @@ module OMF::SliceService::Resource
 
     def to_hash_brief(opts = {})
       h = super
-      h[:role] = self.role
+      #h[:role] = self.role
       h
     end
 

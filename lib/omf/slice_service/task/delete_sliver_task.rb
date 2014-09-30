@@ -7,9 +7,9 @@ module OMF::SliceService::Task
   # @param [URN] authority
   # @param [SliceMember] slice_member
   #
-  def self.DeleteSliver(authority, slice_member)
-    if url = authority.aggregate_manager_2
-      DeleteSliverTask.new.start2(authority, slice_member)
+  def self.DeleteSliver(sliver, slice_member)
+    if url = sliver.authority.aggregate_manager_2
+      DeleteSliverTask.new.start2(sliver, slice_member)
     else
       raise ServiceVersionNotSupportedException.new
     end
@@ -18,15 +18,14 @@ module OMF::SliceService::Task
 
   class DeleteSliverTask < AbstractTask
 
-    def start2(authority, slice_member)
-      slice = slice_member.slice
+    def start2(sliver, slice_member)
+      slice = sliver.slice
       user = slice_member.user
-      slice_credential_promise = slice_member.slice_credential
-      url = authority.aggregate_manager_2
+      url = sliver.authority.aggregate_manager_2
 
       promise = OMF::SFA::Util::Promise.new
-      slice_credential_promise.on_success do |slice_credential|
-        debug "Deleting a sliver at '#{authority}' for slice '#{slice}'"
+      slice_member.slice_credential.on_success do |slice_credential|
+        debug "Deleting a sliver at '#{url}' for slice '#{slice}'"
         #
         # struct DeleteSliver(string slice_urn,
         #                     string credentials[],
@@ -39,9 +38,14 @@ module OMF::SliceService::Task
           .on_success do |res|
             puts "DELETE SUCCEED>>> #{res}"
             promise.resolve(true)
-        end.on_error do |code, msg|
-          puts "DELETE ERROR: #{msg} - #{msg.class}"
-          promise.reject(code. msg)
+        end.on_error do |code, ex|
+          if ex.is_a? TaskTimeoutException
+            debug "Retry delete again"
+            start2(sliver, slice_member)
+          else
+            puts "DELETE ERROR: #{ex} - #{ex.class}"
+            promise.reject(code, ex)
+          end
         end
       end
       promise

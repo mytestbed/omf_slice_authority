@@ -121,6 +121,15 @@ happens when the service is requesting an update from the respective SFA authori
       "type": "retry",
       "delay": 3
     }
+    
+......
+
+    bin/request_slice -v -p bin/create_slice -s urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+foo71 -u urn:publicid:IDN+ch.geni.net+user+maxott -p urn:publicid:IDN+ch.geni.net+project+mystery_project -u urn:publicid:IDN+ch.geni.net+user+maxott --url http://localhost:8006 -s foo80 test/one_node_openvz.xml
+
+    bin/create_slivers -s urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+foo71 \
+         -u urn:publicid:IDN+ch.geni.net+user+maxott \
+         --url http://localhost:8006 \
+         test/one_node_openvz.xml
 
 ### Authorities
 

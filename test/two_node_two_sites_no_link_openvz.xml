@@ -1,0 +1,17 @@
+<rspec type="request" generated="2014-08-27T01:49:11Z"
+       xsi:schemaLocation="http://www.geni.net/resources/rspec/3 http://www.geni.net/resources/rspec/3/request.xsd "
+       xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+       xmlns="http://www.geni.net/resources/rspec/3">
+  <node component_manager_id="urn:publicid:IDN+instageni.stanford.edu+authority+cm"
+        client_id="node0"
+        exclusive="false">
+    <sliver_type name="emulab-openvz"/>
+    <interface client_id="node0:if0"/>
+  </node>
+  <node component_manager_id="urn:publicid:IDN+genirack.nyu.edu+authority+cm"
+        client_id="node1"
+        exclusive="false">
+    <sliver_type name="emulab-openvz"/>
+    <interface client_id="node1:if0"/>
+  </node>
+</rspec>

@@ -49,30 +49,22 @@ module OMF::SliceService
       raise OMF::SFA::AM::Rest::NotAuthorizedException.new("Slivers can only be created in the context of /slices/xxx/slivers")
     end
 
-    # def show_resource_list(opts)
-    #   # authenticator = Thread.current["authenticator"]
-    #   if (context = opts[:context])
-    #     m = opts[:context_name].to_sym
-    #     if m == :slice_members
-    #       refresh = ['', '1', 't', 'T', 'true', 'TRUE'].include?(opts[:req].params['_refresh'])
-    #       resources = context.slice_members(refresh)
-    #     else
-    #       resources = context.send(m)
-    #     end
-    #   else
-    #     @resource_class.all()
-    #   end
-    #   #end
-    #   show_resources(resources, nil, opts)
-    # end
+    # redirect manifest to /manifest
+    def after_resource_to_hash_hook(res)
+      if res.key? :manifest
+        res[:manifest] = absolute_path("/manifest/#{res[:uuid]}")
+      end
+      res
+    end
 
-    #  def _convert_obj_to_html(obj, ref_name, res, opts)
-    #   if ref_name.to_s.include?('slice_credential')
-    #     res << "<a href='/slice_credentials/#{opts[:context][:uuid]}'>...</a>"
-    #     return
-    #   end
-    #   super
-    # end
+    def _convert_obj_to_html(obj, ref_name, res, opts)
+      if ref_name.to_s.include?('manifest')
+        res << "<a href='/manifest/#{opts[:context][:uuid]}'>...</a>"
+        return
+      end
+      super
+    end
+
 
   end
 end

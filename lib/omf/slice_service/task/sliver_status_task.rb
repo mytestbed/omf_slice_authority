@@ -9,8 +9,8 @@ module OMF::SliceService::Task
 
     def initialize(sliver)
       @sliver = sliver
+    end
   end
-end
 
   # @param [URN] authority
   # @param [SliceMember] slice_member
@@ -26,13 +26,11 @@ end
   class SliverStatusTask < AbstractTask
 
     def start2(sliver, slice_member)
-      slice = slice_member.slice
+      slice = sliver.slice
       user = slice_member.user
-      slice_credential_promise = slice_member.slice_credential
       url = sliver.authority.aggregate_manager_2
 
       promise = OMF::SFA::Util::Promise.new
-      #OMF::SFA::Util::Promise.all(slice_credential_promise).on_success do |slice_credential|
       slice_member.slice_credential.on_success do |slice_credential|
         debug "Obtaining sliver status at '#{url}' for slice '#{slice}'"
         # struct SliverStatus(string slice_urn,

@@ -106,10 +106,7 @@ module OMF::SliceService
         raise OMF::SFA::AM::Rest::NotAuthorizedException.new("Slice memberships can only be created in the context of /users/xxx/slice_members")
       end
       Thread.current[:speaking_for] = user
-      #raise 'hi'
-      #RequestContext.exec(description) do
-        sm = user.create_slice_membership(description)
-      #end
+      sm = user.create_slice_membership(description)
     end
 
 

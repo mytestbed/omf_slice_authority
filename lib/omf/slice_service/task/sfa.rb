@@ -6,11 +6,39 @@ require 'omf-sfa/am/am-rest/rest_handler'
 
 
 module OMF::SliceService::Task
+  DEF_BUSY_DELAY = 10 # How many seconds to wait before calling again when server is busy
 
   class MissingSpeaksForCredential < OMF::SFA::AM::Rest::RackException
      def initialize(user)
        super 400, "Missing speaks-for credential for user '#{user.name}'"
      end
+  end
+
+  class SFAException < TaskException
+    attr_reader :code, :message
+    def initialize(code, msg)
+      @code = code
+      @message = msg
+    end
+
+    def match(regex)
+      @message.match(regex) != nil
+    end
+
+    def error?(error)
+      ERR2CODE[error.to_s.upcase.to_sym] == @code
+    end
+
+    def err_type
+      ERR_CODES[@code].to_sym
+    end
+  end
+
+  class XMLRPCException < TaskException
+    attr_reader :exception
+    def initialize(ex)
+      @exception = ex
+    end
   end
 
   # http://groups.geni.net/geni/wiki/GAPI_AM_API_V2_DETAILS#Elementsincode
@@ -177,66 +205,59 @@ module OMF::SliceService::Task
           certs << speaks_for
         end
       end
-      done = false
-      Fiber.new do
-        while !done
-          begin
-            start = Time.now
-            debug "Calling #{url} (#{promise.name}) - #{params}"
-            pa = params.map {|p| p == :CERTS ? certs : p }
-            #debug "Calling2 CH - #{pa}"
-            success, res = client.call2(*pa)
-            debug "Authority reply(#{success}) - #{res.inspect[0 .. 120]}"
-            code = nil
-            if res.is_a? Hash
-              code = res['code']
-              if code.is_a? Hash
-                code = code['geni_code']
-              end
-            end
-            if !success || code != 0
-              warn "SFA call returned error - #{res} - call: #{params.join(' ')}"
-              promise.reject(code, "[SFA] Error: #{res['output']}")
-            else
-              promise.resolve(res)
-            end
-            done = true
-          rescue Exception => ex
-            # TODO: On timeout and busy, retry again
-            warn "ERROR(#{ex.class}): #{ex} - #{Time.now - start}"
-            debug ex.backtrace.join("\n\t")
-            promise.reject(-99, "[XMLRPC] ERROR #{ex}")
-            done = true
-          end
-        end
-      end.resume
+      run(client, url, params, certs, promise)
       promise
     end
 
     private
 
-    # def run(url, method, *args)
-    #   Fiber.new do
-    #     begin
-    #       client = get_client(url)
-    #       res = client.call(method, *args)
-    #       yield :ok, res
-    #     rescue Exception => ex
-    #       puts "------- #{args}"
-    #       puts ex.backtrace.join("\n")
-    #       puts "-------"
-    #       yield :error, ex
-    #     end
-    #   end.resume
-    # end
-    #
-    # def get_client(url)
-    #   client = XMLRPC::Client.new2(url, nil, 300) # extend time out
-    #   client.ssl_options = @@ssl_options
-    #   puts ">> CLIENT: #{url} -- #{@@ssl_options}"
-    #   client
-    # end
-
-
+    def run(client, url, params, certs, promise)
+      done = false
+      Fiber.new do
+        #while !done
+        begin
+          start = Time.now
+          debug "Calling #{url} (#{promise.name}) - #{params}"
+          pa = params.map {|p| p == :CERTS ? certs : p }
+          #debug "Calling2 CH - #{pa}"
+          success, res = client.call2(*pa)
+          debug "Authority reply(#{success} - #{Time.now - start} sec) - #{res.inspect[0 .. 120]}"
+          code = nil
+          if res.is_a? Hash
+            code = res['code']
+            if code.is_a? Hash
+              code = code['geni_code']
+            end
+          end
+          if !success || code != 0
+            if code == ERR2CODE[:BUSY]
+              info "SFA call returned BUSY, will call again in a while"
+              EM.add_timer(DEF_BUSY_DELAY) do
+                debug "Retrying"
+                run(client, url, params, certs, promise)
+              end
+            else
+              warn "SFA call returned error - #{code} - #{res} - call: #{params.join(' ')}"
+              promise.reject(SFAException.new(code, res['output']))
+            end
+          else
+            promise.resolve(res)
+          end
+          done = true
+        rescue Exception => ex
+          # TODO: On timeout and busy, retry again
+          if ex.is_a?(RuntimeError) && ex.to_s.start_with?('connection or timeout error')
+            warn "Timeout (#{Time.now - start} sec) while calling #{url} (#{promise.name}) - #{params}"
+            promise.reject(TaskTimeoutException.new)
+          else
+            warn "ERROR(#{ex.class}): #{ex} - #{Time.now - start}"
+            debug ex.backtrace.join("\n\t")
+            promise.reject(XMLRPCException.new(ex))
+          end
+          done = true
+        end
+        #end
+      end.resume
+    end
   end
 end

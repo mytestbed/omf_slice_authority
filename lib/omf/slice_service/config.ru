@@ -12,7 +12,6 @@ class MyFile < Rack::File
   end
 end
 
-
 require 'omf-sfa/resource/oresource'
 ActiveSupport::Inflector.inflections.irregular('slice', 'slices')
 OMF::SFA::Resource::OResource.href_resolver do |res, o|
@@ -20,7 +19,8 @@ OMF::SFA::Resource::OResource.href_resolver do |res, o|
   unless [:slice, :sliver, :user, :slice_member, :authority].include?(rtype)
     rtype = :resource
   end
-  if rtype == :slice_member
+  case rtype
+  when :slice_members
     "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_members/#{res.uuid}"
   else
     "http://#{Thread.current[:http_host]}/#{rtype.to_s.pluralize}/#{res.uuid}"
@@ -28,23 +28,6 @@ OMF::SFA::Resource::OResource.href_resolver do |res, o|
 end
 
 opts = OMF::Base::Thin::Runner.instance.options
-
-# require 'omf-sfa/resource/oresource'
-# OMF::SFA::Resource::OResource.href_resolver do |res, o|
-  # unless @http_prefix ||=
-    # @http_prefix = "http://#{Thread.current[:http_host]}"
-  # end
-  # case res.resource_type.to_sym
-  # when :slice
-    # "#@http_prefix/slices/#{res.uuid}"
-  # when :slice_member
-    # "#@http_prefix/slices/#{res.slice.uuid}/slice_members/#{res.uuid}"
-  # else
-    # "#@http_prefix/resources/#{res.uuid}"
-  # end
-# end
-#
-# opts = OMF::Base::Thin::Runner.instance.options
 
 require 'rack/cors'
 use Rack::Cors, debug: true do
@@ -101,8 +84,30 @@ map '/promises' do
   run OMF::SFA::AM::Rest::PromiseHandler.new(opts)
 end
 
+map '/manifests' do
+  p = lambda do |env|
+    req = ::Rack::Request.new(env)
+    obj_id = req.path_info.split('/')[-1]
+    q = OMF::SFA::AM::Rest::RestHandler.parse_resource_uri(obj_id)
+    sliver = OMF::SliceService::Resource::Sliver.first(q)
+    unless sliver
+      return [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
+    end
+    case req.request_method
+    when 'GET'
+      if manifest = sliver.manifest
+        [200, {'Content-Type' => 'text/xml'}, manifest]
+      else
+        [204, {}, '']
+      end
+    else
+      [400, {}, '']
+    end
+  end
+  run p
+end
 
-map '/speaks_for' do
+map '/speaks_fors' do
   p = lambda do |env|
     req = ::Rack::Request.new(env)
     obj_id = req.path_info.split('/')[-1]

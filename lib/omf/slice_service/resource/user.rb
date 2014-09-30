@@ -39,7 +39,7 @@ module OMF::SliceService::Resource
       else
         key = :name; value = slice_uri
       end
-      promise = OMF::SFA::Util::Promise.new
+      promise = OMF::SFA::Util::Promise.new('find_slice_member')
       slice_members.on_success do |sma|
         ssm = sma.find do |sm|
           if key == :uuid
@@ -58,7 +58,7 @@ module OMF::SliceService::Resource
     def create_slice_membership(description)
       #OMF::SliceService::Task::CreateSliceMembership(self, description)
 
-      promise = OMF::SFA::Util::Promise.new
+      promise = OMF::SFA::Util::Promise.new('create_slice_membership')
       debug "Creating/updating a slice membership for user '#{self.name}' - urn: #{description[:urn]}"
       role = description[:role] || DEF_SLICE_MEMBERSHIP_ROLE
       slice_name = description.delete(:slice) # needs to replaced by slice record if needed
@@ -94,8 +94,11 @@ module OMF::SliceService::Resource
           else
             Task::CreateSliceForUser(self, {urn: slice_urn, project: project_name}) \
             .on_success do |slice|
-              puts ">>> SLICE CREATED(#{slice}"
+              puts ">>> SLICE CREATED(#{slice}) - #{description}"
               sm = SliceMember.create(name: slice_name, slice: slice, user: self, role: role)
+              sm.update(description)
+              sm.save
+              puts ">>> SLICE_MEMBER CREATED - #{sm} - #{promise}"
               promise.resolve(sm)
             end.on_error(promise)
           end
@@ -158,7 +161,7 @@ module OMF::SliceService::Resource
     alias :_slice_members :slice_members
     def slice_members(refresh = false)
       puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at} - #{refresh}"
-      promise = OMF::SFA::Util::Promise.new
+      promise = OMF::SFA::Util::Promise.new('slice_members')
       min_time = 30 # make sure we don't overload the server here
       if (Time.now - (self.slices_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
         self.slices_checked_at = Time.now

@@ -19,6 +19,7 @@ module OMF::SliceService::Resource
       description[:status] = 'unknown'
       sm = super
       sm.slice_credential() # initiate slice credential download
+      sm
     end
 
     # def self.find_for_user(user, slice_description)
@@ -41,6 +42,10 @@ module OMF::SliceService::Resource
       topo = self.slice.set_topology(topo, self)
       puts "SET_TOPO - #{topo.inspect}"
       topo
+    end
+
+    def topology=(topo)
+      set_topology(topo)
     end
 
     def project=(project)
