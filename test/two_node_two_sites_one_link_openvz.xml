@@ -14,4 +14,12 @@
     <sliver_type name="emulab-openvz"/>
     <interface client_id="node1:if0"/>
   </node>
+  <link client_id="link2">
+    <component_manager name="urn:publicid:IDN+instageni.stanford.edu+authority+cm"/>
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <property source_id="node0:if0" dest_id="node1:if0" capacity="1000"/>
+    <property source_id="node1:if0" dest_id="node0:if0" capacity="1000"/>
+    <interface_ref client_id="node0:if0"/>
+    <interface_ref client_id="node1:if0"/>
+</link>
 </rspec>

@@ -49,7 +49,7 @@ module OMF::SliceService::Resource
             sm.slice.send(key) == value
           end
         end
-        puts "SMEMBERS FOUND>>> #{ssm.inspect}"
+        #puts "SMEMBERS FOUND>>> #{ssm.inspect}"
         ssm ? promise.resolve(ssm) : promise.reject("Unknown slice member '#{slice_uri}' for user '#{self.urn}'")
       end.on_error(promise)
       promise
@@ -94,11 +94,11 @@ module OMF::SliceService::Resource
           else
             Task::CreateSliceForUser(self, {urn: slice_urn, project: project_name}) \
             .on_success do |slice|
-              puts ">>> SLICE CREATED(#{slice}) - #{description}"
+              #puts ">>> SLICE CREATED(#{slice}) - #{description}"
               sm = SliceMember.create(name: slice_name, slice: slice, user: self, role: role)
               sm.update(description)
               sm.save
-              puts ">>> SLICE_MEMBER CREATED - #{sm} - #{promise}"
+              debug "slice member create #{sm} - #{promise}"
               promise.resolve(sm)
             end.on_error(promise)
           end
@@ -160,12 +160,12 @@ module OMF::SliceService::Resource
 
     alias :_slice_members :slice_members
     def slice_members(refresh = false)
-      puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at} - #{refresh}"
+      #puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at} - #{refresh}"
       promise = OMF::SFA::Util::Promise.new('slice_members')
       min_time = 30 # make sure we don't overload the server here
       if (Time.now - (self.slices_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
         self.slices_checked_at = Time.now
-        puts ">>>> NEED TO CHECK FOR SLICES"
+        debug "Need to check CH for slice membership changes for '#{self}'"
         OMF::SliceService::Task::LookupSlicesForMember(self, ) \
         .on_error { |*msgs| promise.reject(*msgs) } \
         .on_success do |slices|

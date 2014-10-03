@@ -24,7 +24,7 @@ module OMF::SliceService::Task
       url = sliver.authority.aggregate_manager_2
       user = slice_member.user
 
-      promise = OMF::SFA::Util::Promise.new
+      promise = OMF::SFA::Util::Promise.new('CreateSliverTask')
       OMF::SFA::Util::Promise.all(slice_member.slice_credential, user.ssh_keys).on_success do |slice_credential, ssh_keys|
         debug "Creating a sliver at '#{url}' for slice '#{slice}'"
         # struct CreateSliver(string slice_urn,
@@ -37,6 +37,7 @@ module OMF::SliceService::Task
         }
         users = [{urn: user.urn, keys: ssh_keys}]
         cred = slice_credential.map {|c| c["geni_value"] }
+        promise.progress "Calling 'CreateSliver' on '#{sliver.authority.name}'"
         SFA.call(url, ['CreateSliver', slice.urn, :CERTS, rspec.to_s, users, opts], user, cred, false) \
           .on_error do |code, ex|
             puts ">>>CRETA ERROR >>> #{ex}"
@@ -44,34 +45,30 @@ module OMF::SliceService::Task
               puts ">>>CRETA ERROR@ >>> #{ex.error? :refused} -- #{ex.match(/.*Must delete existing slice first/)}"
               if ex.error?(:refused) && ex.match(/.*Must delete existing slice first/)
                 debug "Sliver '#{slice.urn}@#{url}' already exist. Need to delete first"
+                promise.progress "Sliver already exists. Need to delete first."
                 OMF::SliceService::Task::DeleteSliver(sliver, slice_member).on_success do |res|
                   debug "Successfully deleted old sliver '#{slice.urn}@#{url}'"
                   # Try again
+                  promise.progress "Try again to create sliver."
                   promise.resolve(start2(sliver, rspec, slice_member))
-                end.on_error(promise)
+                end.on_error(promise).on_progress(promise)
+              else
+                promise.reject(code, ex)
               end
-            # if code == ERR2CODE[:REFUSED]
-            #   if ex.match(/.*Must delete existing slice first/)
-            #     debug "Sliver '#{slice.urn}@#{url}' already exist. Need to delete first"
-            #     OMF::SliceService::Task::DeleteSliver(sliver, slice_member).on_success do |res|
-            #       debug "Successfully deleted old sliver '#{slice.urn}@#{url}'"
-            #       # Try again
-            #       promise.resolve(start2(sliver, rspec, slice_member))
-            #     end.on_error(promise)
+            # elsif ex.is_a? OMF::SliceService::Task::TaskTimeoutException
+            #   OMF::SliceService::Task::ListSliverResources(sliver, slice_member).on_success do |res|
+            #     puts "LIST RESOURCES>>>> #{res}"
+            #   end.on_error do |code, ex|
+            #     puts "LIST RESOURCES ERROR>>>> #{ex}"
             #   end
-            elsif ex.is_a? OMF::SliceService::Task::TaskTimeoutException
-              OMF::SliceService::Task::ListSliverResources(sliver, slice_member).on_success do |res|
-                puts "LIST RESOURCES>>>> #{res}"
-              end.on_error do |code, ex|
-                puts "LIST RESOURCES ERROR>>>> #{ex}"
-              end
-              next
+            #   next
             else
               promise.reject(code, ex)
             end
           end \
           .on_success do |reply|
             debug "Successfully created sliver '#{slice.urn}@#{url}' - #{reply}"
+            promise.progress "Successfully created sliver '#{slice.urn}'."
             res = { manifest: reply['value'] }
             code = reply['code']
             if (code.is_a? Hash)
@@ -80,11 +77,11 @@ module OMF::SliceService::Task
               end
             end
 
-            OMF::SliceService::Task::ListSliverResources(sliver, slice_member).on_success do |res|
-              puts "LIST RESOURCES>>>> #{res}"
-            end.on_error do |code, ex|
-              puts "LIST RESOURCES ERROR>>>> #{ex}"
-            end
+            # OMF::SliceService::Task::ListSliverResources(sliver, slice_member).on_success do |res|
+            #   puts "LIST RESOURCES>>>> #{res}"
+            # end.on_error do |code, ex|
+            #   puts "LIST RESOURCES ERROR>>>> #{ex}"
+            # end
 
             promise.resolve(res)
           end

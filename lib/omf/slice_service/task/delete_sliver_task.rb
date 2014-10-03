@@ -18,12 +18,12 @@ module OMF::SliceService::Task
 
   class DeleteSliverTask < AbstractTask
 
-    def start2(sliver, slice_member)
+    def start2(sliver, slice_member, promise = nil)
       slice = sliver.slice
       user = slice_member.user
       url = sliver.authority.aggregate_manager_2
 
-      promise = OMF::SFA::Util::Promise.new
+      promise ||= OMF::SFA::Util::Promise.new('DeleteSliverTask')
       slice_member.slice_credential.on_success do |slice_credential|
         debug "Deleting a sliver at '#{url}' for slice '#{slice}'"
         #
@@ -41,7 +41,16 @@ module OMF::SliceService::Task
         end.on_error do |code, ex|
           if ex.is_a? TaskTimeoutException
             debug "Retry delete again"
-            start2(sliver, slice_member)
+            promise.progress "Retrying because of timeout"
+            start2(sliver, slice_member, promise)
+          elsif ex.is_a? OMF::SliceService::Task::SFAException
+            # 12 - {"value"=>0, "output"=>"No such slice here"
+            if ex.error?(:searchfailed) #&& ex.match(/.*No such slice here/)
+              debug "Looks like sliver '#{slice.urn}' is already gone."
+              promise.resolve(true)
+            else
+              promise.reject(code, ex)
+            end
           else
             puts "DELETE ERROR: #{ex} - #{ex.class}"
             promise.reject(code, ex)

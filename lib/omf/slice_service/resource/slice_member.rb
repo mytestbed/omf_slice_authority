@@ -15,7 +15,7 @@ module OMF::SliceService::Resource
     oproperty :slice_credential, String
 
     def self.create(description)
-      puts ">>>>> NEW SLICE MEMBER - #{description}"
+      #puts ">>>>> NEW SLICE MEMBER - #{description}"
       description[:status] = 'unknown'
       sm = super
       sm.slice_credential() # initiate slice credential download
@@ -58,7 +58,7 @@ module OMF::SliceService::Resource
         OMF::SFA::Util::Promise.new.resolve(scred)
       else
         OMF::SliceService::Task::GetSliceCredential(self.slice, self.user).on_success do |sc|
-          puts "SLICE_CRED>>> #{sc.inspect[0 .. 100]}"
+          #puts "SLICE_CRED>>> #{sc.inspect[0 .. 100]}"
           self.slice_credential = sc
           self.save
         end

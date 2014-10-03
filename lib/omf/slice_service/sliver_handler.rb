@@ -52,7 +52,7 @@ module OMF::SliceService
     # redirect manifest to /manifest
     def after_resource_to_hash_hook(res)
       if res.key? :manifest
-        res[:manifest] = absolute_path("/manifest/#{res[:uuid]}")
+        res[:manifest] = absolute_path("/manifests/#{res[:uuid]}")
       end
       res
     end

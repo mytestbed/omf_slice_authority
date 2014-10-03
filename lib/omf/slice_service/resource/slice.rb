@@ -2,7 +2,7 @@ require 'omf/slice_service/resource'
 require 'omf/slice_service/resource/sliver'
 #require 'omf-sfa/resource/oresource'
 require 'omf-sfa/util/graph_json'
-require 'time'
+require 'date'
 require 'open-uri'
 
 module OMF::SliceService::Resource
@@ -23,7 +23,7 @@ module OMF::SliceService::Resource
     oproperty :slivers, :reference, type: :sliver, functional: false
     oproperty :slice_members, :slice_member, functional: false, inverse: :slice
     oproperty :slice_creation_pending, :boolean
-
+    oproperty :progress, String, :functional => false
 
     def expired?
       self.expiration < Time.now
@@ -47,20 +47,73 @@ module OMF::SliceService::Resource
       set_topology(topo)
     end
 
-    def set_topology(topo, slice_member = nil)
+    def set_topology(topo, slice_member = nil, promise = nil)
       # if self.slice_creation_pending
       #   raise SliceCreationPendingException.new
       # end
-      promise = OMF::SFA::Util::Promise.new
-      puts ">>>>> TOPOLOGY(#{topo.class}) - #{topo.to_s[0 .. 80]}"
+      promise ||= OMF::SFA::Util::Promise.new
 
+      rspec = _extract_rspec(topo)
       # OK, we should check if this is the identical to previous
-      rspec = nil
-      if topo.is_a? Hash
+      # TODO: Should we really do that?
+      # current_rspec = self.rspec
+      # if (current_rspec && current_rsepc == rspec) # same
+      #   return promise.resolve(current_rspec)
+      # end
 
+      # Request resources!
+      unless slice_member
+        if smp = Thread.current[:slice_member]
+          smp.on_success {|sm| set_topology(topo, sm, promise) }
+          return promise
+        else
+          raise OMF::SFA::AM::Rest::BadRequestException.new("Can't determine user for which to request resources")
+        end
+      end
+      user = slice_member.user
+
+      cms = rspec.xpath('//n:*[@component_manager_id]', n: 'http://www.geni.net/resources/rspec/3').map do |e|
+        e['component_manager_id']
+      end.to_set
+      if cms.empty?
+        raise OMF::SFA::AM::Rest::BadRequestException.new("Can't find a reference to a component manager (component_manager_id)")
+      end
+
+      if self.slice_creation_pending
+        #raise OMF::SFA::AM::Rest::TemporaryUnavailableException.new
+      end
+      self.slice_creation_pending = true
+      # first release all existing slivers
+      old_slivers = self.slivers.map do |s|
+        s.release!(slice_member).on_progress(promise, s.authority.urn)
+      end
+      OMF::SFA::Util::Promise.all(*old_slivers).on_always do |*success|
+        #puts ">>>>>>>>> OLD DELETED"
+        promise.progress "Old slivers cleaned up" unless old_slivers.empty?
+        self.slivers.clear
+        cms.each do |cm|
+          sliver = Sliver.create_for_component_manager(cm, rspec, slice_member, promise)
+          sliver.on_status do |state|
+            _check_sliver_progress(sliver, state, promise)
+          end
+          self.slivers << sliver
+        end
+        self.save
+        #promise.resolve(self.slivers.to_a)
+      end
+      promise.on_progress do |ts, m|
+        #puts "----------------- #{ts}: #{m}"
+        self.progress(m, ts)
+        self.save
+      end
+      promise
+    end
+
+    def _extract_rspec(topo)
+      if topo.is_a? Hash
         case mt = topo[:mime_type] || 'application/gjson'
         when 'application/gjson'
-          User.transaction do |t|
+          Slice.transaction do |t|
             r = OMF::SFA::Util::GraphJSON.parse(topo[:content])
             rspec = OComponent.to_rspec(r.values, :request)
             puts "RES>>>> #{rspec}"
@@ -79,45 +132,32 @@ module OMF::SliceService::Resource
         else
           raise OMF::SFA::AM::Rest::BadRequestException.new "Unsupported content mime-type '#{mt}'."
         end
-
+      elsif topo.is_a? Nokogiri::XML::Document
+        rspec = topo
       else
-        raise OMF::SFA::AM::Rest::BadRequestException.new "Topology description needs to be a hash"
+        raise OMF::SFA::AM::Rest::BadRequestException.new "Topology description needs to be a hash, but is a '#{topo.class}'"
       end
-      current_rspec = self.rspec
-      if (current_rspec && current_rsepc == rspec) # same
-        return promise.resolve(current_rspec)
+      rspec
+    end
+
+    # Called whenever the state of a sliver has changed.
+    # We'll check if all slivers have been provisioned
+    # for the first time and then resolve 'promise'
+    # with the current list of slice resources.
+    #
+    def _check_sliver_progress(sliver, state, promise)
+      return unless promise.pending? # already resolved
+      if self.slivers.all? {|s| s.provisioned? }
+        self.slice_creation_pending = false
+        self.save
+        promise.resolve self.resources
       end
+    end
 
-      # Request resources!
-      unless slice_member
-        if smp = Thread.current[:slice_member]
-          slice_member = smp.value
-        else
-          raise OMF::SFA::AM::Rest::BadRequestException.new("Can't determine user for which to request resources")
-        end
-      end
-      user = slice_member.user
-
-
-      cms = rspec.xpath('//n:*[@component_manager_id]', n: 'http://www.geni.net/resources/rspec/3').map do |e|
-        e['component_manager_id']
-      end.to_set
-      if cms.empty?
-        raise OMF::SFA::AM::Rest::BadRequestException.new("Can't find a reference to a component manager (component_manager_id)")
-      end
-
-      self.slice_creation_pending = true
-      # first release all existing slivers
-      self.slivers.each {|s| s.release! }
-      self.slivers.clear
-
-      puts ">>> CMS: #{cms.inspect}"
-      cms.each do |cm|
-        puts ">>> CM: #{cm}"
-        self.slivers << Sliver.create_for_component_manager(cm, rspec, slice_member)
-      end
-      promise.resolve(self.slivers.to_a)
-      promise
+    def resources
+      r = self.slivers.map do |s|
+        s.resources
+      end.flatten
     end
 
     alias :_slice_members :slice_members
@@ -139,6 +179,10 @@ module OMF::SliceService::Resource
       h = super
       #h[:urn] = self.urn || 'unknown'
       h
+    end
+
+    def progress(msg, timestamp = nil)
+      self.progresses << "#{(timestamp || Time.now).utc.iso8601}: #{msg}"
     end
 
     def initialize(opts)

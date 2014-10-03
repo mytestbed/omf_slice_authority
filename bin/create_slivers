@@ -79,7 +79,7 @@ elsif gf[0] == '<'
   }
 end
 
-uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice')
+uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice?_level=2')
 req = {
   #_request_id: UUID.new.generate,
   topology: graph
@@ -104,7 +104,7 @@ def make_request(uri, body)
     delay = 10 if delay < 10
     puts ".. retry again in - #{delay}"
     sleep delay
-    return make_request(uri, body, request_id)
+    return make_request(uri, body)
 
   when 302
     puts "RESPONSE>>>> #{response.inspect}"

@@ -19,7 +19,7 @@ role = nil
 url = 'http://localhost:8006'
 
 optparse = OptionParser.new do |opts|
-  opts.banner = "Usage: #{$0} [options] topoFile"
+  opts.banner = "Usage: #{$0} [options] resourceFile"
 
   opts.on('-s', '--slice NAME', 'Name of slice' ) do |n|
     slice_name = n
@@ -56,7 +56,7 @@ end
 
 # Next argument should be script file
 unless ARGV.length == 1
-  puts "ERROR: Missing topo file\n"
+  puts "ERROR: Missing resource file\n"
   puts optparse
   abort
 end
@@ -67,35 +67,25 @@ unless File.readable? graphFile
 end
 gf = File.read(graphFile).strip
 if gf[0] == '{'
-  graph = {
-    mime_type: 'application/gjson',
-    content: JSON.parse(gf)
-  }
+  mime_type = 'application/gjson'
 elsif gf[0] == '<'
-  graph = {
-    mime_type: 'text/xml',
-    encoding: 'uri',
-    content: URI::encode(gf)
-  }
+  mime_type = 'text/xml'
+else
+  puts "ERROR: Can't figure out the type of content in '#{graphFile}'"
+  abort
 end
 
-uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice?_level=2')
-req = {
-  #_request_id: UUID.new.generate,
-  topology: graph
-}
+uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice/resources')
 
 # OK, time ot post it
 if $verbose
-  puts "Sending the following request to '#{uri}'"
-  puts JSON.pretty_generate(req)
+  puts "PUTing a request to '#{uri}'"
 end
 
-def make_request(uri, body)
-  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+def make_request(uri, body, mime_type)
+  req = Net::HTTP::Put.new(uri.path, {'Content-Type' => mime_type})
   #req.basic_auth @user, @pass
   req.body = body
-  #req['X-Request-ID'] = request_id
   response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
   case Integer(response.code)
   when 504
@@ -104,7 +94,7 @@ def make_request(uri, body)
     delay = 10 if delay < 10
     puts ".. retry again in - #{delay}"
     sleep delay
-    return make_request(uri, body)
+    return make_request(uri, body, mime_type)
 
   when 302
     puts "RESPONSE>>>> #{response.inspect}"
@@ -112,5 +102,5 @@ def make_request(uri, body)
   puts "#{response.code} #{response.message}:\n#{response.body}"
 end
 
-make_request(uri, JSON.pretty_generate(req))
+make_request(uri, gf, mime_type)
 
