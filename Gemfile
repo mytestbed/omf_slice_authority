@@ -5,7 +5,7 @@ def override_with_local(local_dir, opts = {})
     local_dir = File.join(File.dirname(__FILE__), local_dir)
   end
   #puts "Checking for '#{local_dir}'"
-  Dir.exist?(local_dir) ? {path: local_dir} : {}
+  Dir.exist?(local_dir) ? {path: local_dir} : opts
 end
 
 gem 'omf_base', override_with_local('../omf_base')
