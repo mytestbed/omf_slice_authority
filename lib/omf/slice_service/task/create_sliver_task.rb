@@ -40,9 +40,8 @@ module OMF::SliceService::Task
         promise.progress "Calling 'CreateSliver' on '#{sliver.authority.name}'"
         SFA.call(url, ['CreateSliver', slice.urn, :CERTS, rspec.to_s, users, opts], user, cred, false) \
           .on_error do |code, ex|
-            puts ">>>CRETA ERROR >>> #{ex}"
+            #puts ">>>CRETA ERROR@ >>> #{ex.error? :refused} -- #{ex.match(/.*Must delete existing slice first/)}"
             if ex.is_a? OMF::SliceService::Task::SFAException
-              puts ">>>CRETA ERROR@ >>> #{ex.error? :refused} -- #{ex.match(/.*Must delete existing slice first/)}"
               if ex.error?(:refused) && ex.match(/.*Must delete existing slice first/)
                 debug "Sliver '#{slice.urn}@#{url}' already exist. Need to delete first"
                 promise.progress "Sliver already exists. Need to delete first."
@@ -55,13 +54,6 @@ module OMF::SliceService::Task
               else
                 promise.reject(code, ex)
               end
-            # elsif ex.is_a? OMF::SliceService::Task::TaskTimeoutException
-            #   OMF::SliceService::Task::ListSliverResources(sliver, slice_member).on_success do |res|
-            #     puts "LIST RESOURCES>>>> #{res}"
-            #   end.on_error do |code, ex|
-            #     puts "LIST RESOURCES ERROR>>>> #{ex}"
-            #   end
-            #   next
             else
               promise.reject(code, ex)
             end

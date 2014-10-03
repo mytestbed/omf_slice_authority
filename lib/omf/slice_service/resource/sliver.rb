@@ -160,7 +160,7 @@ module OMF::SliceService::Resource
 
     alias :_status= :status=
     def status=(status)
-      puts "STATUS>>>>>>  #{status}"
+      #puts "STATUS>>>>>>  #{status}"
       _status = status
       if @status_handlers
         @status_handlers.each do |block|

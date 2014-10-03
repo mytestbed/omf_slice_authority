@@ -46,7 +46,7 @@ unless url
 end
 
 # Next argument should be user urn
-puts ">>> #{ARGV.inspect}"
+#puts ">>> #{ARGV.inspect}"
 unless ARGV.length == 1
   puts "ERROR: Missing user name\n"
   puts optparse
@@ -64,7 +64,8 @@ else
   sf_cred = File.read(speaks_for_file_name).strip
 end
 
-uri = URI.parse(url + '/speaks_for/' + user_urn)
+#uri = URI.parse(url + '/users/' + user_urn + '/speaks_for')
+uri = URI.parse(url + '/speaks_fors/' + user_urn)
 # OK, time ot post it
 if $verbose
   puts "Posting speaks-for to '#{uri}'"
