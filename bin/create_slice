@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+
+# $0 --name foo200 -- simple_test.oedl --more a --foo xx@node -x
+
+require "zlib"
+require "json"
+require 'optparse'
+require 'base64'
+require 'net/http'
+require 'open-uri'
+require 'uuid'
+
+$verbose = false
+
+slice_name = nil
+user = nil
+project = nil
+role = nil
+url = 'http://localhost:8006'
+topo_file = nil
+
+optparse = OptionParser.new do |opts|
+  opts.banner = "Usage: #{$0} [options] sliceName"
+
+  opts.on('-t', '--topology NAME', 'Topology file (rspec, gjson)' ) do |n|
+    topo_file = n
+  end
+
+  opts.on('-u', '--user URN', "URN of requesting user" ) do |u|
+    user = u
+  end
+
+  opts.on('-p', '--project NAME', "Project name" ) do |p|
+    project = p
+  end
+
+  opts.on('-r', '--role NAME', "Type of role this user is requesting for this slice [#{role}]" ) do |r|
+    role = r
+  end
+
+  opts.on('', '--url URL', "URL for slice service [#{url}]" ) do |u|
+    url = u
+  end
+
+  opts.on('-v', '--verbose', "Print more information about what's going on. [#{$verbose}]" ) do |url|
+    $verbose = true
+  end
+  opts.on( '-h', '--help', 'Display this screen' ) do
+    puts opts
+    exit
+  end
+end
+optparse.parse!
+
+unless user
+  puts "ERROR: Missing user\n"
+  puts optparse
+  abort
+end
+unless project
+  puts "ERROR: Missing project\n"
+  puts optparse
+  abort
+end
+
+# Next argument should be script file
+unless ARGV.length >= 1
+  puts "ERROR: Missing slice name\n"
+  puts optparse
+  abort
+end
+slice_name = ARGV.shift
+
+graph = nil
+if topo_file
+  unless File.readable? topo_file
+    puts "ERROR: Can't read topology file '#{topo_file}'"
+    abort
+  end
+  gf = File.read(topo_file).strip
+  if gf[0] == '{'
+    graph = {
+      mime_type: 'application/gjson',
+      content: JSON.parse(gf)
+    }
+  elsif gf[0] == '<'
+    graph = {
+      mime_type: 'text/xml',
+      encoding: 'uri',
+      content: URI::encode(gf)
+    }
+  end
+end
+
+
+
+uri = URI.parse(url + '/users/' + user + '/slice_members')
+
+slice = {
+  #_request_id: UUID.new.generate,
+  project: project,
+}
+slice[:slice] = slice_name if slice_name
+slice[:role] = role if role
+slice[:topology] = graph if graph
+
+# OK, time ot post it
+if $verbose
+  puts "Sending the following request to '#{uri}'"
+  puts JSON.pretty_generate(slice)
+end
+
+def make_request(uri, body)
+  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+#req.basic_auth @user, @pass
+  req.body = body
+  response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
+  case Integer(response.code)
+  when 504
+    b = JSON.parse(response.body)
+    delay = b['delay'] || 10
+    delay = 10 if delay < 10
+    puts ".. retry again in - #{delay}"
+    sleep delay
+    return make_request(uri, body)
+  end
+  puts "#{response.code} #{response.message}:\n#{response.body}"
+end
+
+make_request(uri, JSON.pretty_generate(slice))
+
