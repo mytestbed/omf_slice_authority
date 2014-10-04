@@ -45,19 +45,66 @@ To start a job service from this directory, run the following:
 which should result in something like:
 
     INFO Server: Slice Service V xx
-    DEBUG Server: Options: {...}
     INFO Server: >> Thin web server (v1.3.1 codename Triple Espresso)
-    DEBUG Server: >> Debugging ON
-    DEBUG Server: >> Tracing ON
-    INFO Server: >> Maximum connections set to 1024
+    ...
     INFO Server: >> Listening on 0.0.0.0:8006, CTRL+C to stop
     INFO AuthorityClass: Fetching authority list from 'https://flsmonitor.fed4fire.eu/testbeds.xml'
     INFO SFA: Checking Clearinghouse API version at 'https://ch.geni.net/SA'
     ...
 
 
-Testing REST API
-----------------
+REST API
+--------
+
+The Slice Service is primarily providing coordination across other services with some of
+them requiring substantial time to complete. To stay with the asynchronous nature of 
+web services, this service is using two mechanisms to indicate state and progress.
+
+If the Slice Service is missing necessary information to even get started processing
+a request, it will return a 504 (Gateway Timeout) error, indicating that it is safe
+to retry the same request in a short time (~ 10sec).
+
+If a request is accepted but will require time to complete, the Slice Service will
+return a 301 redirect to a promise resource which should ultimately return the 
+originally requested resource. The Promise resource will return a 504 code while
+the associated work is in progress. When the promise is resolved it will either return
+the result of the original request with a 200 code, or any respective error code
+if the request cannot be fulfilled. Please note, that promises are temporary resources
+which may be removed some time after the associated request has completed. However, this 
+should not be a concern in normal operation where a client is expected to regularly 
+check the state of the promise.
+
+    $ curl -v -L http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+maxott/slice_members
+    ...
+    < HTTP/1.1 302 Moved Temporarily
+    < Location: /promises/22ccd749-9b67-41ee-9de2-afee6ad0457c
+    ...
+    > GET /promises/22ccd749-9b67-41ee-9de2-afee6ad0457c HTTP/1.1
+    ...
+    < HTTP/1.1 504 Gateway Time-out
+    ... 
+    {
+      "type": "retry",
+      "delay": 10,
+      "url": "http://localhost:8006/promises/22ccd749-9b67-41ee-9de2-afee6ad0457c",
+      "progress": [
+        "2014-10-04T05:30:08Z:   slice_members started",
+        "2014-10-04T05:30:08Z:     LookupSlicesForMemberTask started"
+      ]
+    }
+    ...
+    $ curl -v -L http://localhost:8006/promises/22ccd749-9b67-41ee-9de2-afee6ad0457c 
+    < HTTP/1.1 200 OK
+    ...
+    [
+      {
+        "uuid": "31c53c8f-c1b2-442f-b7c8-866206e00acf",
+        "href": "http://localhost:8006/slice_members/31c53c8f-c1b2-442f-b7c8-866206e00acf",
+        ...
+
+
+
+The following assumes that service is running locally and listens at port 8006.
 
 ### User
 
@@ -86,17 +133,21 @@ To create a new user:
       "name": "johnsmith"
     }
 
-To add a speaks-for credential to a user, POST it to /speaks_for/user_uuid
+To add a speaks-for credential to a user, POST it to '/speaks_fors/user_uuid'
 
-    curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_for/8f2f5110-c0b4-4e31-baf9-615f5bc75a43
+    curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/urn:publicid:IDN+ch.geni.net+user+johnsmith
 
-*Use --data-binary option to make sure the white space inside the speaks for are intact.*
+*Use --data-binary option to make sure the white space inside the speaks-for are intact.*
+
+Please note that both the record's 'urn' as well as 'uuid' can be used in all calls targeting a specific
+resource.
+
 
 ### Slices
 
 To get a listing of all the active slices a user is a member of:
 
-    % curl http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43/slice_members
+    % curl http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+johnsmith/slice_members
     [
       {
         "uuid": "4e24817c-5248-4509-8122-e49e60bada49",

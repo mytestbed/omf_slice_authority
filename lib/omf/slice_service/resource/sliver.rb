@@ -38,14 +38,15 @@ module OMF::SliceService::Resource
         warn "Trying to create sliver on unknown authority '#{cm_urn}'"
         raise UnknownAuthorityException.new(cm_urn)
       end
-      sliver = self.create(authority: authority, slice: slice_member.slice, status: 'provisioning')
+      name = authority.name || authority.urn
+      sliver = self.create(name: name, authority: authority, slice: slice_member.slice, status: 'provisioning')
       sliver.slice_member = slice_member # TODO: Security alert
 
       Task::CreateSliver(sliver, rspec, slice_member).on_success do |reply|
         #puts ">>>>>>>>>>>>>>>>>>>>SLIVER>>>> #{reply}"
         sliver.provisioned_at = Time.now
         sliver.progress "Status changed to 'provisioned'"
-        sliver.manifest = m = reply[:manifest]
+        sliver.manifest = reply[:manifest]
         if log_url = reply[:err_url]
           sliver.log_url = log_url
         end
@@ -54,6 +55,7 @@ module OMF::SliceService::Resource
       end.on_error do |err_code, msg|
         error ">>>>>>>>>>>>>>>>>>>>SLIVER ERRRO >>>> #{msg} - #{err_code}"
         sliver.progress "ERROR: #{msg} - #{err_code}"
+        sliver.status = 'error:' + msg
         sliver.release
       end.on_always do
         sliver.save
@@ -174,6 +176,13 @@ module OMF::SliceService::Resource
       end
       status
     end
+
+    alias :_manifest= :manifest=
+    def manifest=(manifest)
+      _manifest = manifest
+      #doc.xpath( '/n:rspec/n:*[@client_id]', n: NS)[1].to_s
+    end
+
 
     # Call 'block' whenever the status of this sliver changes
     #

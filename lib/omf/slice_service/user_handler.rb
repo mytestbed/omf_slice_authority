@@ -26,7 +26,7 @@ module OMF::SliceService
     # redirect speaks_for to /speaks_for
     def after_resource_to_hash_hook(res)
       if res.key? :speaks_for
-        res[:speaks_for] = absolute_path("/speaks_for/#{res[:uuid]}")
+        res[:speaks_for] = absolute_path("/speaks_fors/#{res[:uuid]}")
       end
       res
     end

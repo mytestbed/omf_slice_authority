@@ -157,7 +157,7 @@ module OMF::SliceService::Resource
     def resources
       r = self.slivers.map do |s|
         s.resources
-      end.flatten
+      end.compact.flatten
     end
 
     alias :_slice_members :slice_members

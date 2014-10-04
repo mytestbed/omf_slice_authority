@@ -167,7 +167,6 @@ module OMF::SliceService::Resource
         self.slices_checked_at = Time.now
         debug "Need to check CH for slice membership changes for '#{self}'"
         OMF::SliceService::Task::LookupSlicesForMember(self, ) \
-        .on_error { |*msgs| promise.reject(*msgs) } \
         .on_success do |slices|
           # 'slices' is really [[slice, role], ...]
           current_sms = {}
@@ -191,7 +190,7 @@ module OMF::SliceService::Resource
           current_sms.values.each {|sm| sm.destroy} # remove slice members no longer active
           sm = _slice_members.compact
           promise.resolve(sm)
-        end
+        end.on_error(promise).on_progress(promise)
       else
         sm = _slice_members.compact
         promise.resolve(sm)

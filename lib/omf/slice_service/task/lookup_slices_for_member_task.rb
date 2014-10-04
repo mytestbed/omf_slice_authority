@@ -25,12 +25,10 @@ module OMF::SliceService::Task
       }
       context_id = OMF::SliceService::RequestContext.id
 
-      promise = OMF::SFA::Util::Promise.new()
+      promise = OMF::SFA::Util::Promise.new('LookupSlicesForMemberTask')
       SFA.call_ch(['lookup_slices_for_member', user.urn, :CERTS, opts], user) \
       .on_error {|*msgs| promise.reject(*msgs) } \
       .on_success do |res|
-        puts "ON SUCCESS>>> #{res['value']}"
-
         slices = res['value'].map do |sd|
           opts = {}
           # "SLICE_PROJECT_URN" "SLICE_NAME" "SLICE_EXPIRED" "SLICE_URN" "SLICE_UID" "_GENI_SLICE_OWNER" "_GENI_SLICE_EMAIL"
