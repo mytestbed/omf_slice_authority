@@ -40,4 +40,4 @@ install_cookbook(){
 }
 
 install_cookbook 'chef-repo-master' 'https://github.com/jackhong/chef-repo/archive/master.tar.gz'
-cd ${COOKBOOK_DIR}/chef-repo-master && FRCP=$FRCP chef-solo -c solo/solo.rb -j solo/solo.json
+cd ${COOKBOOK_DIR}/chef-repo-master && FRCP=$FRCP chef-solo --no-fork -c solo/solo.rb -j solo/solo.json

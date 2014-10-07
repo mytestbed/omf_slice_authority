@@ -45,7 +45,6 @@ module OMF::SliceService::Resource
 
       slice.progresses.clear # remove prior sliver progress as we are going to change state
       Task::CreateSliver(sliver, rspec, slice_member).on_success do |reply|
-        #puts ">>>>>>>>>>>>>>>>>>>>SLIVER>>>> #{reply}"
         sliver.provisioned_at = Time.now
         sliver.progress "Status changed to 'provisioned'"
         sliver.manifest = reply[:manifest]
@@ -62,7 +61,6 @@ module OMF::SliceService::Resource
       end.on_always do
         sliver.save
       end.on_progress do |ts, m|
-        #puts "------------PROGRESSS>>>>>> #{ts}: <#{m}>"
         sliver.progress(m, ts)
         sliver.save
       end.on_progress(req_promise, cm_urn)
@@ -97,9 +95,7 @@ module OMF::SliceService::Resource
       if (Time.now - (self.status_checked_at || 0)).to_i > check_interval
         @status_promise = promise # pending
         self.status_checked_at = Time.now
-        #puts ">>>> NEED TO CHECK FOR SLICE_STATUS"
         OMF::SliceService::Task::SliverStatus(self, self.slice_member).on_success do |res|
-          #puts ">>>>> SLIVER_STATUS #{res}"
           ready_count = 0
           error_count = 0
           if mf = self.manifest
@@ -112,16 +108,16 @@ module OMF::SliceService::Resource
               next
             end
             ri = resources[client_id] ||= {}
-            ri[:client_id] = client_id
-            case status = ri[:status] = r["geni_status"]
+            ri['client_id'] = client_id
+            case status = ri['status'] = r["geni_status"]
             when 'ready'
               ready_count += 1
             else
               error_count += 1
             end
             #ssh_login = _parse_ssh_login(r["geni_client_id"], manifest)
-            ri[:urn] = r["geni_urn"]
-            ri[:error] = r["geni_error"] if r["geni_error"] && !r["geni_error"].empty?
+            ri['urn'] = r["geni_urn"]
+            ri['error'] = r["geni_error"] if r["geni_error"] && !r["geni_error"].empty?
             #res[:ssh_login] = ssh_login if ssh_login
             #res
           end
@@ -168,7 +164,6 @@ module OMF::SliceService::Resource
 
     alias :_status= :status=
     def status=(status)
-      #puts "STATUS>>>>>>  #{status}"
       self._status = status
       if @status_handlers
         @status_handlers.each do |block|
@@ -185,8 +180,6 @@ module OMF::SliceService::Resource
 
     alias :_manifest= :manifest=
     def manifest=(manifest)
-      #puts "RESOU>>> #{self.resources.class} - #{self.resources.inspect}"
-      #puts "MANIFEST>>>> #{manifest}"
       self._manifest = manifest
 
       return nil unless manifest
@@ -199,27 +192,27 @@ module OMF::SliceService::Resource
       manifest.root.xpath('n:*[@client_id]', n: RSPEC3_NS).each do |r_el|
         client_id = r_el['client_id']
         ri = resources[client_id] ||= {}
-        ri[:client_id] =  client_id
-        ri[:status] ||= 'unknown' # set it to something initially
-        ri[:omf_id] = client_id + slice_postfix
-        ri[:sliver_id] = r_el['sliver_id']
+        ri['client_id'] =  client_id
+        ri['status'] ||= 'unknown' # set it to something initially
+        ri['omf_id'] = client_id + slice_postfix
+        ri['sliver_id'] = r_el['sliver_id']
         if login = r_el.xpath('n:services/n:login[@authentication="ssh-keys"]', n: RSPEC3_NS)[0]
-          ri[:ssh_login] = {
+          ri['ssh_login'] = {
             hostname: login['hostname'],
             port: login['port']
           }
         end
-        interfaces = ri[:interfaces] || {}
+        interfaces = ri['interfaces'] || {}
         # NODES
         r_el.xpath('n:interface', n: RSPEC3_NS).map do |inf_el|
           client_id = inf_el['client_id']
           ii = interfaces[client_id] ||= {}
-          ii[:client_id] = client_id
-          ii[:sliver_id] = inf_el['sliver_id']
+          ii['client_id'] = client_id
+          ii['sliver_id'] = inf_el['sliver_id']
           if mac = inf_el['mac_address']
-            ii[:mac_address] = mac
+            ii['mac_address'] = mac
           end
-          ii[:ip] = inf_el.xpath('n:ip', n: RSPEC3_NS).map do |ip_el|
+          ii['ip'] = inf_el.xpath('n:ip', n: RSPEC3_NS).map do |ip_el|
             {address: ip_el['address'], type: ip_el['type']}
           end
         end
@@ -227,10 +220,10 @@ module OMF::SliceService::Resource
         r_el.xpath('n:interface_ref', n: RSPEC3_NS).map do |inf_el|
           client_id = inf_el['client_id']
           ii = interfaces[client_id] ||= {}
-          ii[:client_id] = client_id
-          ii[:sliver_id] = inf_el['sliver_id']
+          ii['client_id'] = client_id
+          ii['sliver_id'] = inf_el['sliver_id']
         end
-        ri[:interfaces] = interfaces unless interfaces.empty?
+        ri['interfaces'] = interfaces unless interfaces.empty?
       end
       self.resources = resources
       self.save
