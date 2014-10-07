@@ -25,6 +25,11 @@ module OMF::SliceService
         slice_members: (opts[:slice_member_handler] || SliceMemberHandler.new(opts)),
         slivers: (opts[:sliver_handler] || SliverHandler.new(opts)),
         resources: (opts[:slice_resources_handler] ||= SliceResourcesHandler.new(opts)),
+        topology: lambda do |path, opts|
+          slice = opts[:resource]
+          graph  = JSON.pretty_generate(slice.topology)
+          OMF::SFA::AM::Rest::ContentFoundException.new(graph, :json)
+        end,
         init_scripts: lambda do |path, opts|
           script = find_initscript(path, opts)
           OMF::SFA::AM::Rest::ContentFoundException.new(script)

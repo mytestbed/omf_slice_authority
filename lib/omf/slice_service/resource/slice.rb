@@ -162,6 +162,74 @@ module OMF::SliceService::Resource
       r
     end
 
+    def topology
+      nodes = []
+      edges = []
+      interfaces = {}
+      rs = self.resources
+      rs.values.each do |r|
+        next unless r['type'] == 'node'
+        nodes << {
+          _id: r['sliver_id'],
+          _type: 'node',
+          name: r['client_id'],
+          status: r['status'],
+          node_type: r['node_type'],
+          ssh_login: r['ssh_login']
+        }
+        (r['interfaces'] || {}).each do |client_id, ifd|
+          interfaces[client_id] = {interface: ifd, node: r}
+        end
+      end
+      # "edges": [
+      #   {
+      #     "_id": "5bcbcfa4-e624-41f6-8ab5-6fd712ab6fcc",
+      #   "_type": "link",
+      #   "_source": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+      #   "_target": "98020d5a-2888-446c-990b-c37d8fe37f37",
+      #   "head": {
+      #   "name": "if0",
+      #   "ip": { "address": "10.0.5.2", "type": "ipv4", "netmask": "255.255.255.0" }
+      # },
+      #   "tail": {
+      #   "ip": { "address": "10.0.5.3", "type": "ipv4", "netmask": "255.255.255.0" }
+      # }
+      rs.values.each do |r|
+        next unless r['type'] == 'link'
+
+        edge = {
+          _id: r['sliver_id'],
+          _type: 'link'
+        }
+        ifs = r['interfaces'] || []
+        if ifs.size == 2
+          _topology_edge_from_link(edge, r, interfaces)
+        end
+        edges << edge
+      end
+
+      {graph: {
+        mode: "NORMAL",
+        nodes: nodes,
+        edges: edges
+      }}
+    end
+
+    def _topology_edge_from_link(edge, link, interfaces)
+      puts "LINK>>> #{link['interfaces'].values}"
+      puts "INTERFACES>>> #{interfaces}"
+      head, tail = link['interfaces'].values
+      if_head = interfaces[head['client_id']]
+      if_tail = interfaces[tail['client_id']]
+      puts "HEAD: #{if_head}"
+      puts "TAIL: #{if_tail}"
+      return unless if_head && if_tail
+      edge[:_source] = if_head[:node]['sliver_id']
+      edge[:head] = if_head[:interface]
+      edge[:_target] = if_tail[:node]['sliver_id']
+      edge[:tail] = if_tail[:interface]
+    end
+
     alias :_slice_memberships :slice_members
     def slice_members(refresh = false)
       # there is a bug in the delete logic regarding non-functional objects

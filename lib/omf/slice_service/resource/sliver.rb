@@ -197,6 +197,9 @@ module OMF::SliceService::Resource
         ri['type'] = r_el.name
         ri['omf_id'] = client_id + slice_postfix
         ri['sliver_id'] = r_el['sliver_id']
+        if st_el = r_el.xpath('n:sliver_type', n: RSPEC3_NS)[0]
+          ri['node_type'] = st_el['name']
+        end
         if login = r_el.xpath('n:services/n:login[@authentication="ssh-keys"]', n: RSPEC3_NS)[0]
           ri['ssh_login'] = {
             hostname: login['hostname'],
