@@ -16,7 +16,11 @@ module OMF::SliceService
       # Define handlers
       opts[:user_handler] = self
       @coll_handlers = {
-        slice_members: (opts[:slice_member_handler] ||= SliceMemberHandler.new(opts)),
+        slice_memberships: (opts[:slice_member_handler] ||= SliceMemberHandler.new(opts)),
+        ssh_keys: lambda do |path, opts|
+          user = opts[:resource]
+          OMF::SFA::AM::Rest::ContentFoundException.new(user.ssh_keys)
+        end,
         speaks_for: lambda do |path, opts|
           raise OMF::SFA::AM::Rest::RedirectException.new("/speaks_fors/#{opts[:resource].uuid}")
         end

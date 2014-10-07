@@ -22,8 +22,8 @@ module OMF::SliceService::Resource
     oproperty :speaks_for, String
     oproperty :authorized_until, DataMapper::Property::Time
     oproperty :email, String
-    oproperty :slice_members, :slice_member, functional: false, inverse: :user
-    oproperty :slices_checked_at, DataMapper::Property::Time
+    oproperty :slice_memberships, :slice_member, functional: false, inverse: :user
+    oproperty :slice_memberships_checked_at, DataMapper::Property::Time
     oproperty :ssh_keys, String
     oproperty :ssh_keys_checked_at, DataMapper::Property::Time
 
@@ -40,7 +40,7 @@ module OMF::SliceService::Resource
         key = :name; value = slice_uri
       end
       promise = OMF::SFA::Util::Promise.new('find_slice_member')
-      slice_members.on_success do |sma|
+      slice_memberships.on_success do |sma|
         ssm = sma.find do |sm|
           if key == :uuid
             # UUID of slice_member, not slice
@@ -76,7 +76,7 @@ module OMF::SliceService::Resource
       slice_urn = OMF::SFA::Resource::GURN.new(slice_name, :slice, domain)
 
       # Check if it already exists
-      slice_members.on_success do |sma|
+      self.slice_memberships.on_success do |sma|
         Thread.current[:speaking_for] = self
         membership = nil
         surn = slice_urn.to_s
@@ -148,7 +148,7 @@ module OMF::SliceService::Resource
       OMF::SliceService::SFA.instance.call2(['modify_membership', 'SLICE', slice_urn, :CERTS, opts], self) do |success, res|
         if success
           debug "Successfully removed '#{self.urn}' from slice '#{slice_urn}'"
-          self._slice_members.delete(slice_member)
+          self._slice_memberships.delete(slice_member)
           slice_member.destroy
           self.save
         else
@@ -158,20 +158,22 @@ module OMF::SliceService::Resource
     end
 
 
-    alias :_slice_members :slice_members
-    def slice_members(refresh = false)
-      #puts "SLICE CHECKED>>>>>>>  #{self.slices_checked_at} - #{refresh}"
-      promise = OMF::SFA::Util::Promise.new('slice_members')
+    alias :_slice_memberships :slice_memberships
+    def slice_memberships(refresh = false)
+      #puts "SLICE CHECKED>>>>>>>  #{self.slice_memberships_checked_at} - #{refresh}"
+      promise = OMF::SFA::Util::Promise.new('slice_memberships')
       min_time = 30 # make sure we don't overload the server here
-      if (Time.now - (self.slices_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
-        self.slices_checked_at = Time.now
+      if (Time.now - (self.slice_memberships_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
+        self.slice_memberships_checked_at = Time.now
         debug "Need to check CH for slice membership changes for '#{self}'"
-        OMF::SliceService::Task::LookupSlicesForMember(self, ) \
+        OMF::SliceService::Task::LookupSlicesForMember(self) \
         .on_success do |slices|
           # 'slices' is really [[slice, role], ...]
           current_sms = {}
-          self._slice_members.each do |sm|
-            next unless sm # skip nil values - TODO: Bug in OProperty non-functional when DELETE
+          self._slice_memberships.each do |sm|
+            # skip nil values - TODO: Bug in OProperty non-functional when DELETE
+            next if (sm.nil? || sm.status.nil? || sm.status == 'destroyed')
+
             slice_uuid = sm.slice.uuid
             current_sms[slice_uuid] = sm
           end
@@ -187,12 +189,15 @@ module OMF::SliceService::Resource
               sm = SliceMember.create(name: name, role: role, slice: slice, user: self)
             end
           end
-          current_sms.values.each {|sm| sm.destroy} # remove slice members no longer active
-          sm = _slice_members.compact
+          current_sms.values.each do |sm|
+            sm.status = 'destroyed'; sm.save # TODO: Fully removing OResources doesn't seem to work
+            #sm.destroy # remove slice members no longer active
+          end
+          sm = _slice_memberships.compact.select {|s| !(s.status == nil || s.status == 'destroyed') }
           promise.resolve(sm)
         end.on_error(promise).on_progress(promise)
       else
-        sm = _slice_members.compact
+        sm = _slice_memberships.compact.select {|s| !(s.status == nil || s.status == 'destroyed') }
         promise.resolve(sm)
       end
       promise
@@ -221,7 +226,12 @@ module OMF::SliceService::Resource
       super
       h[:urn] = self.urn || 'unknown'
       h[:authorized] = self.authorized?
-      h[:ssh_keys] = ssh_keys()
+      href_only = opts[:level] >= opts[:max_level]
+      #puts "LEVLE (#{href_only}): #{opts[:level]} - #{opts[:max_level]}"
+      if href_only
+        h[:slice_memberships] = self.href + '/slice_memberships'
+      end
+      h[:ssh_keys] = href_only ? self.href + '/ssh_keys' : ssh_keys()
     end
 
     def to_hash_brief(opts = {})

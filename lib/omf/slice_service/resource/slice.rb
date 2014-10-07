@@ -155,15 +155,38 @@ module OMF::SliceService::Resource
     end
 
     def resources
-      r = self.slivers.map do |s|
-        s.resources
-      end.compact.flatten
+      r = {}
+      self.slivers.each do |s|
+        r.merge! s.resources
+      end
+      r
     end
 
-    alias :_slice_members :slice_members
+    alias :_slice_memberships :slice_members
     def slice_members(refresh = false)
       # there is a bug in the delete logic regarding non-functional objects
-      _slice_members.compact
+      _slice_memberships.compact
+    end
+
+    # Return a hash describing information a resource
+    # would like to know to bootstrap it's own state
+    #
+    def resource_info(client_id)
+      resources = self.resources
+      resources[client_id]
+    end
+
+    # Return the postfix used to identify resources. A resource
+    # prepends it's client_id to the string returned.
+    #
+    def slice_postfix
+      p = self.urn.split '+'
+      sname = p[-1]
+      auth, project = p[-3].split(':')
+      if project.nil?
+        warn "Unexpected slice URN format '#{self.urn}' - expected something like 'urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+foo95'"
+      end
+      ".#{sname}.#{project}.#{auth == 'ch.geni.net' ? 'geni' : 'unknown'}"
     end
 
     def to_hash_long(h, objs, opts = {})

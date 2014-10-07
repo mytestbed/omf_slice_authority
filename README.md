@@ -98,8 +98,8 @@ check the state of the promise.
     ...
     [
       {
-        "uuid": "31c53c8f-c1b2-442f-b7c8-866206e00acf",
-        "href": "http://localhost:8006/slice_members/31c53c8f-c1b2-442f-b7c8-866206e00acf",
+        "name": "foo70",
+        "href": "http://bleeding.mytestbed.net:8006/slice_members/4e24817c-5248-4509-8122-e49e60bada49",
         ...
 
 
@@ -111,35 +111,52 @@ The following assumes that service is running locally and listens at port 8006.
 If you started the service with the '--test-load-state' option, the service got preloaded with a few
 resources. To list all users:
 
-    % curl http://localhost:8006/users
+    $ curl http://localhost:8006/users
     [
       {
-        "uuid": "22ccd749-9b67-41ee-9de2-afee6ad0457c",
+        "name": "urn:publicid:IDN+ch.geni.net+user+maxott",
         "href": "http://localhost:8006/users/22ccd749-9b67-41ee-9de2-afee6ad0457c",
-        "name": "max",
-        "type": "user"
-      }
+      },
+      {
+         ...
     ]
+    
+To find out more about a particular user:
 
+    $ curl http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+maxott
+    {
+      "urn": "urn:publicid:IDN+ch.geni.net+user+maxott",
+      "uuid": "22ccd749-9b67-41ee-9de2-afee6ad0457c",
+      "href": "http://localhost:8006/users/22ccd749-9b67-41ee-9de2-afee6ad0457c",
+      "type": "user",
+      "created_at": "2014-09-28T20:45:26+10:00",
+      "speaks_for": "http://localhost:8006/speaks_fors/22ccd749-9b67-41ee-9de2-afee6ad0457c",
+      "slice_memberships": "http://localhost:8006/users/22ccd749-9b67-41ee-9de2-afee6ad0457c/slice_memberships"
+      "slices_checked_at": "2014-10-04T15:42:14+10:00",
+      "ssh_keys": "http://localhost:8006/users/22ccd749-9b67-41ee-9de2-afee6ad0457c/ssh_keys",
+      "ssh_keys_checked_at": "2014-10-04T15:42:14+10:00"
+    }
+    
 To create a new user:
 
-    % curl -X POST -H "Content-Type: application/json" \
+    $ curl -X POST -H "Content-Type: application/json" \
          -d '{"urn":"urn:publicid:IDN+ch.geni.net+user+johnsmith"}' \
          http://localhost:8006/users
     {
-      "type": "user",
+      "urn": "urn:publicid:IDN+ch.geni.net+user+johnsmith",
       "uuid": "8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
-      "href": "http://bleeding.mytestbed.net:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
-      "name": "johnsmith"
+      "href": "http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43",
+      "type": "user",
+      "created_at": "2014-09-28T20:48:17+10:00",
     }
 
 To add a speaks-for credential to a user, POST it to '/speaks_fors/user_uuid'
 
-    curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/urn:publicid:IDN+ch.geni.net+user+johnsmith
+    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/urn:publicid:IDN+ch.geni.net+user+johnsmith
 
 *Use --data-binary option to make sure the white space inside the speaks-for are intact.*
 
-Please note that both the record's 'urn' as well as 'uuid' can be used in all calls targeting a specific
+Please note that both the record's 'urn' as well as its 'uuid' can be used in all calls targeting a specific
 resource.
 
 
@@ -147,31 +164,18 @@ resource.
 
 To get a listing of all the active slices a user is a member of:
 
-    % curl http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+johnsmith/slice_members
+    % curl http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+johnsmith/slice_memberships
     [
       {
-        "uuid": "4e24817c-5248-4509-8122-e49e60bada49",
-        "href": "http://bleeding.mytestbed.net:8006/slice_members/4e24817c-5248-4509-8122-e49e60bada49",
-        "name": "bob",
-        "type": "slice_member",
-        "status": "unknown",
-        "role": "MEMBER",
-        "slice_urn": "urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+bob",
-        "user_urn": "urn:publicid:IDN+ch.geni.net+user+maxott"
+        "slice_urn": "urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+foo51",
+        "role": "LEAD",
+        "href": "http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43/slice_memberships/4e24817c-5248-4509-8122-e49e60bada49",
       },
       ...
 
-Please be prepared to receive a '504' HTTP response, requesting you to try again in a few seconds. This
-happens when the service is requesting an update from the respective SFA authorities.
+Please be prepared to receive a '504' HTTP response, as discussed above, requesting you to try again 
+in a few seconds. 
 
-    % curl -v http://localhost:8006/users/8f2f5110-c0b4-4e31-baf9-615f5bc75a43/slice_members
-    ...
-    < HTTP/1.1 504 Gateway Time-out
-    ...
-    {
-      "type": "retry",
-      "delay": 3
-    }
     
 ......
 

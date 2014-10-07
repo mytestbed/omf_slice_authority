@@ -38,10 +38,12 @@ module OMF::SliceService::Resource
         warn "Trying to create sliver on unknown authority '#{cm_urn}'"
         raise UnknownAuthorityException.new(cm_urn)
       end
+      slice = slice_member.slice
       name = authority.name || authority.urn
       sliver = self.create(name: name, authority: authority, slice: slice_member.slice, status: 'provisioning')
       sliver.slice_member = slice_member # TODO: Security alert
 
+      slice.progresses.clear # remove prior sliver progress as we are going to change state
       Task::CreateSliver(sliver, rspec, slice_member).on_success do |reply|
         #puts ">>>>>>>>>>>>>>>>>>>>SLIVER>>>> #{reply}"
         sliver.provisioned_at = Time.now
@@ -103,24 +105,28 @@ module OMF::SliceService::Resource
           if mf = self.manifest
             manifest = Nokogiri::XML.parse(mf)
           end
-          self.resources = resources = res['geni_resources'].map do |r|
-            case status = r["geni_status"]
+          resources = self.resources ||= {}
+          res['geni_resources'].map do |r|
+            unless client_id = r["geni_client_id"]
+              warn "SliverStatus returns resource without 'client_id' - #{r}"
+              next
+            end
+            ri = resources[client_id] ||= {}
+            ri[:client_id] = client_id
+            case status = ri[:status] = r["geni_status"]
             when 'ready'
               ready_count += 1
             else
               error_count += 1
             end
-            ssh_login = _parse_ssh_login(r["geni_client_id"], manifest)
-            res = {
-              status: status,
-              urn: r["geni_urn"],
-
-              client_id: r["geni_client_id"] || 'unknown'
-            }
-            res[:error] = r["geni_error"] if r["geni_error"] && !r["geni_error"].empty?
-            res[:ssh_login] = ssh_login if ssh_login
-            res
+            #ssh_login = _parse_ssh_login(r["geni_client_id"], manifest)
+            ri[:urn] = r["geni_urn"]
+            ri[:error] = r["geni_error"] if r["geni_error"] && !r["geni_error"].empty?
+            #res[:ssh_login] = ssh_login if ssh_login
+            #res
           end
+          self.resources = resources
+
           curr_status = self._status
           if ready_count + error_count > 0
             # we know something of at least one resource
@@ -163,7 +169,7 @@ module OMF::SliceService::Resource
     alias :_status= :status=
     def status=(status)
       #puts "STATUS>>>>>>  #{status}"
-      _status = status
+      self._status = status
       if @status_handlers
         @status_handlers.each do |block|
           begin
@@ -179,8 +185,58 @@ module OMF::SliceService::Resource
 
     alias :_manifest= :manifest=
     def manifest=(manifest)
-      _manifest = manifest
+      #puts "RESOU>>> #{self.resources.class} - #{self.resources.inspect}"
+      #puts "MANIFEST>>>> #{manifest}"
+      self._manifest = manifest
+
+      return nil unless manifest
+      unless manifest.is_a? Nokogiri::XML::Document
+        manifest = Nokogiri::XML.parse(manifest)
+      end
+
+      resources = self.resources || {}
+      slice_postfix = self.slice.slice_postfix
+      manifest.root.xpath('n:*[@client_id]', n: RSPEC3_NS).each do |r_el|
+        client_id = r_el['client_id']
+        ri = resources[client_id] ||= {}
+        ri[:client_id] =  client_id
+        ri[:status] ||= 'unknown' # set it to something initially
+        ri[:omf_id] = client_id + slice_postfix
+        ri[:sliver_id] = r_el['sliver_id']
+        if login = r_el.xpath('n:services/n:login[@authentication="ssh-keys"]', n: RSPEC3_NS)[0]
+          ri[:ssh_login] = {
+            hostname: login['hostname'],
+            port: login['port']
+          }
+        end
+        interfaces = ri[:interfaces] || {}
+        # NODES
+        r_el.xpath('n:interface', n: RSPEC3_NS).map do |inf_el|
+          client_id = inf_el['client_id']
+          ii = interfaces[client_id] ||= {}
+          ii[:client_id] = client_id
+          ii[:sliver_id] = inf_el['sliver_id']
+          if mac = inf_el['mac_address']
+            ii[:mac_address] = mac
+          end
+          ii[:ip] = inf_el.xpath('n:ip', n: RSPEC3_NS).map do |ip_el|
+            {address: ip_el['address'], type: ip_el['type']}
+          end
+        end
+        # LINKS
+        r_el.xpath('n:interface_ref', n: RSPEC3_NS).map do |inf_el|
+          client_id = inf_el['client_id']
+          ii = interfaces[client_id] ||= {}
+          ii[:client_id] = client_id
+          ii[:sliver_id] = inf_el['sliver_id']
+        end
+        ri[:interfaces] = interfaces unless interfaces.empty?
+      end
+      self.resources = resources
+      self.save
+
       #doc.xpath( '/n:rspec/n:*[@client_id]', n: NS)[1].to_s
+      manifest
     end
 
 
@@ -239,7 +295,10 @@ module OMF::SliceService::Resource
     def to_hash_brief(opts = {})
       raise DiscardedSliverException.new if released?
       h = super
-      #h[:urn] = self.urn || 'unknown'
+
+      self.manifest = self.manifest
+      #h[:resource] = self.resources
+
       h
     end
 

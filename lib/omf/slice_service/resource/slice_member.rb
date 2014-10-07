@@ -10,7 +10,7 @@ module OMF::SliceService::Resource
 
     oproperty :status, String # 'pending', 'active', 'expired'
     oproperty :slice, :slice, inverse: :slice_members
-    oproperty :user, :user, inverse: :slice_members
+    oproperty :user, :user, inverse: :slice_memberships
     oproperty :role, String
     oproperty :slice_credential, String
 
@@ -65,18 +65,20 @@ module OMF::SliceService::Resource
       end
     end
 
+    def to_hash_long(h, objs, opts = {})
+      super
+      href_only = opts[:level] >= opts[:max_level]
+      if href_only
+        h[:slice_credential] = self.href + '/slice_credential'
+      end
+    end
 
     def to_hash_brief(opts = {})
-      h = super
-      h[:status] = self.status || 'unknown'
-      h[:role] = self.role
-      if slice = self.slice
-        h[:slice_urn] = slice.urn
-      end
-      if user = self.user
-        h[:user_urn] = user.urn
-      end
-      h
+      {
+        slice_urn: slice.urn,
+        role: self.role,
+        href: self.href
+      }
     end
 
   end # classs

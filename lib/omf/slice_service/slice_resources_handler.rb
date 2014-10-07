@@ -37,7 +37,7 @@ module OMF::SliceService
     def on_put(resource_uri, opts)
       slice = opts[:context]
       description, format = parse_body(opts, [:json, :xml])
-      slice_member = get_context_resource(:slice_members, opts)
+      slice_member = get_context_resource(:slice_memberships, opts)
       debug '>>> PUT "', slice_member.inspect, '"'
       begin
         res = slice.set_topology(description, slice_member)

@@ -41,7 +41,8 @@ module OMF::SliceService::Task
         }
         cred = slice_credential.map {|c| c["geni_value"] }
         SFA.call(url, ['SliverStatus', slice.urn, :CERTS, opts], user, cred, false).on_success do |reply|
-          debug "Successfully queried sliver status '#{slice.urn}@#{url}' - #{reply}"
+          #debug "Successfully queried sliver status '#{slice.urn}@#{url}' - #{reply}"
+          debug "Successfully queried sliver status '#{slice.urn}@#{url}'"
           promise.resolve(reply['value'])
         end.on_error do |code, msg|
           if code == ERR2CODE[:SEARCHFAILED]

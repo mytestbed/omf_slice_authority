@@ -75,7 +75,7 @@ else
   abort
 end
 
-uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice/resources')
+uri = URI.parse(url + '/users/' + user + '/slice_memberships/' + slice_name + '/slice/resources')
 
 # OK, time ot post it
 if $verbose
@@ -97,9 +97,11 @@ def make_request(uri, body, mime_type)
     return make_request(uri, body, mime_type)
 
   when 302
+    location = response['location']
+    puts "redirected to #{location}"
     puts "RESPONSE>>>> #{response.inspect}"
   end
-  puts "#{response.code} #{response.message}:\n#{response.body}"
+  puts ">>>> #{response.code} #{response.message}:\n#{response.body}"
 end
 
 make_request(uri, gf, mime_type)

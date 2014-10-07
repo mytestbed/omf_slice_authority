@@ -20,8 +20,8 @@ OMF::SFA::Resource::OResource.href_resolver do |res, o|
     rtype = :resource
   end
   case rtype
-  when :slice_members
-    "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_members/#{res.uuid}"
+  when :slice_member
+    "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_memberships/#{res.uuid}"
   else
     "http://#{Thread.current[:http_host]}/#{rtype.to_s.pluralize}/#{res.uuid}"
   end
@@ -69,10 +69,10 @@ map '/users' do
   run opts[:user_handler] || OMF::SliceService::UserHandler.new(opts)
 end
 
-map '/slice_members' do
-  require 'omf/slice_service/slice_member_handler'
-  run opts[:slice_member_handler] || OMF::SliceService::SliceMemberHandler.new(opts)
-end
+# map '/slice_members' do
+#   require 'omf/slice_service/slice_member_handler'
+#   run opts[:slice_member_handler] || OMF::SliceService::SliceMemberHandler.new(opts)
+# end
 
 map '/authorities' do
   require 'omf/slice_service/authority_handler'

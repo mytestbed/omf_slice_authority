@@ -1,4 +1,7 @@
 
+require 'erb'
+require 'ostruct'
+
 require 'omf-sfa/am/am-rest/rest_handler'
 require 'omf/slice_service/resource'
 require 'omf/slice_service/slice_member_handler'
@@ -10,6 +13,7 @@ module OMF::SliceService
   # Handles the collection of slices on this AM.
   #
   class SliceHandler < OMF::SFA::AM::Rest::RestHandler
+    INIT_FILE_TEMPLATE = File.absolute_path(File.dirname(__FILE__) + '/../../../etc/omf-slice-service/node_init_file.erb.sh')
 
     def initialize(opts = {})
       super
@@ -20,7 +24,11 @@ module OMF::SliceService
       @coll_handlers = {
         slice_members: (opts[:slice_member_handler] || SliceMemberHandler.new(opts)),
         slivers: (opts[:sliver_handler] || SliverHandler.new(opts)),
-        resources: (opts[:slice_resources_handler] ||= SliceResourcesHandler.new(opts))
+        resources: (opts[:slice_resources_handler] ||= SliceResourcesHandler.new(opts)),
+        init_scripts: lambda do |path, opts|
+          script = find_initscript(path, opts)
+          OMF::SFA::AM::Rest::ContentFoundException.new(script)
+        end
       }
     end
 
@@ -39,6 +47,21 @@ module OMF::SliceService
     def after_resource_to_hash_hook(res)
       res[:resources] = absolute_path("/slices/#{res[:uuid]}/resources")
       res
+    end
+
+    def find_initscript(path, opts)
+      slice = opts[:resource]
+      node = path[0]
+      if slice.nil? || node.nil?
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new("Can't find node name")
+      end
+      resources = slice.resources
+      unless resources.key? node
+        raise OMF::SFA::AM::Rest::UnknownResourceException.new("Don't know anything about '#{node}''")
+      end
+      state = OpenStruct.new(node_name: node, slice: slice, resources: resources)
+      template = File.read INIT_FILE_TEMPLATE
+      ERB.new(template).result(state.instance_eval { binding })
     end
   end
 end

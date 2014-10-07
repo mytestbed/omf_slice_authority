@@ -22,19 +22,21 @@ module OMF::SliceService
       opts[:slice_member_handler] = self
       @coll_handlers = {
         slice: lambda do |path, sopts|
-          slice_member = get_context_resource(:slice_members, sopts)
+          slice_member = get_context_resource(:slice_memberships, sopts)
           path.insert(0, slice_member.slice.uuid.to_s)
           sh = (opts[:slice_handler] ||= SliceHandler.new(opts))
           sh.find_handler(path, sopts)
         end,
         user: lambda do |path, sopts|
-          slice_member = get_context_resource(:slice_members, sopts)
+          slice_member = get_context_resource(:slice_memberships, sopts)
           path.insert(0, slice_member.user.uuid.to_s)
           uh = (opts[:user_handler] ||= UserHandler.new(opts))
           uh.find_handler(path, sopts)
         end,
         slice_credential: lambda do |path, opts|
-          raise OMF::SFA::AM::Rest::RedirectException.new("/slice_credentials/#{opts[:resource].uuid}")
+          OMF::SFA::AM::Rest::ContentFoundException.new(opts[:resource], :json) do |r|
+            r.slice_credential
+          end
         end
       }
     end
@@ -116,9 +118,9 @@ module OMF::SliceService
       #resources = RequestContext.exec(opts) do
         if (context = opts[:context])
           m = opts[:context_name].to_sym
-          if m == :slice_members
+          if m == :slice_memberships
             refresh = ['', '1', 't', 'T', 'true', 'TRUE'].include?(opts[:req].params['_refresh'])
-            resources = context.slice_members(refresh)
+            resources = context.slice_memberships(refresh)
           else
             resources = context.send(m)
           end
