@@ -216,13 +216,13 @@ module OMF::SliceService::Resource
     end
 
     def _topology_edge_from_link(edge, link, interfaces)
-      puts "LINK>>> #{link['interfaces'].values}"
-      puts "INTERFACES>>> #{interfaces}"
+      #puts "LINK>>> #{link['interfaces'].values}"
+      #puts "INTERFACES>>> #{interfaces}"
       head, tail = link['interfaces'].values
       if_head = interfaces[head['client_id']]
       if_tail = interfaces[tail['client_id']]
-      puts "HEAD: #{if_head}"
-      puts "TAIL: #{if_tail}"
+      #puts "HEAD: #{if_head}"
+      #puts "TAIL: #{if_tail}"
       return unless if_head && if_tail
       edge[:_source] = if_head[:node]['sliver_id']
       edge[:head] = if_head[:interface]
