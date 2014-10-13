@@ -36,7 +36,7 @@ module OMF::SliceService
 
     def on_put(resource_uri, opts)
       slice = opts[:context]
-      description, format = parse_body(opts, [:json, :xml])
+      description, format = parse_body(opts, [:gjson, :xml])
       slice_member = get_context_resource(:slice_memberships, opts)
       debug '>>> PUT "', slice_member.inspect, '"'
       begin

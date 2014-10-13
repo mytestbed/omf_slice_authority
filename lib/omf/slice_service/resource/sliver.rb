@@ -191,6 +191,7 @@ module OMF::SliceService::Resource
       slice_postfix = self.slice.slice_postfix
       manifest.root.xpath('n:*[@client_id]', n: RSPEC3_NS).each do |r_el|
         client_id = r_el['client_id']
+        puts ">>>> #{client_id} -- #{resources.class} -- #{r_el}"
         ri = resources[client_id] ||= {}
         ri['client_id'] =  client_id
         ri['status'] ||= 'unknown' # set it to something initially

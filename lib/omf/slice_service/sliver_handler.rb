@@ -50,11 +50,11 @@ module OMF::SliceService
     end
 
     # redirect manifest to /manifest
-    def after_resource_to_hash_hook(res)
-      if res.key? :manifest
-        res[:manifest] = absolute_path("/manifests/#{res[:uuid]}")
+    def after_resource_to_hash_hook(res_hash, res)
+      if res_hash.key? :manifest
+        res[:manifest] = absolute_path("/manifests/#{res.uuid}")
       end
-      res
+      res_hash
     end
 
     def _convert_obj_to_html(obj, ref_name, res, opts)

@@ -49,9 +49,9 @@ module OMF::SliceService
     end
 
     # redirect speaks_for to /speaks_for
-    def after_resource_to_hash_hook(res)
-      res[:resources] = absolute_path("/slices/#{res[:uuid]}/resources")
-      res
+    def after_resource_to_hash_hook(res_hash, res)
+      res_hash[:resources] = absolute_path("/slices/#{res.uuid}/resources")
+      res_hash
     end
 
     def find_initscript(path, opts)

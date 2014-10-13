@@ -31,10 +31,8 @@ end
 
 desc "Run the  Service in this shell"
 task :run do |t, args|
-  system("#{TOP_DIR}/bin/omf_slice_service start")
+  system("#{TOP_DIR}/bin/omf_slice_service --dm-auto-upgrade start")
 end
-
-
 
 desc "Call after 'bundle install --path vendor'"
 task 'post-install' => [:create_server_bin]

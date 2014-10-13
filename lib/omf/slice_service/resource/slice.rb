@@ -72,9 +72,11 @@ module OMF::SliceService::Resource
       end
       user = slice_member.user
 
-      cms = rspec.xpath('//n:*[@component_manager_id]', n: 'http://www.geni.net/resources/rspec/3').map do |e|
+      cma1 = rspec.xpath('//n:*[@component_manager_id]', n: Sliver::RSPEC3_NS).map do |e|
         e['component_manager_id']
-      end.to_set
+      end
+      cma2 = rspec.xpath('//n:component_manager', n: Sliver::RSPEC3_NS).map {|e| e['name']}
+      cms = (cma1 + cma2).to_set
       if cms.empty?
         raise OMF::SFA::AM::Rest::BadRequestException.new("Can't find a reference to a component manager (component_manager_id)")
       end
@@ -110,11 +112,18 @@ module OMF::SliceService::Resource
     end
 
     def _extract_rspec(topo)
+      puts "TOPO>>> #{topo.class}::#{topo}"
+      rspec = nil
       if topo.is_a? Hash
         case mt = topo[:mime_type] || 'application/gjson'
         when 'application/gjson'
           Slice.transaction do |t|
-            r = OMF::SFA::Util::GraphJSON.parse(topo[:content])
+            begin
+              r = OMF::SFA::Util::GraphJSON.parse(topo)
+            rescue OMF::SFA::Util::GraphJSONException => gex
+              warn "Error parsing gjson - #{gex} - #{topo}"
+              raise OMF::SFA::AM::Rest::BadRequestException.new(gex)
+            end
             rspec = OComponent.to_rspec(r.values, :request)
             puts "RES>>>> #{rspec}"
             t.rollback
@@ -207,12 +216,13 @@ module OMF::SliceService::Resource
         end
         edges << edge
       end
-
-      {graph: {
-        mode: "NORMAL",
-        nodes: nodes,
-        edges: edges
-      }}
+      {
+        graph: {
+          mode: "NORMAL",
+          nodes: nodes,
+          edges: edges
+        }
+      }
     end
 
     def _topology_edge_from_link(edge, link, interfaces)

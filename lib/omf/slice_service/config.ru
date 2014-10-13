@@ -21,7 +21,11 @@ OMF::SFA::Resource::OResource.href_resolver do |res, o|
   end
   case rtype
   when :slice_member
-    "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_memberships/#{res.uuid}"
+    if res.user
+      "http://#{Thread.current[:http_host]}/users/#{res.user.uuid}/slice_memberships/#{res.uuid}"
+    else
+      'unknown'
+    end
   else
     "http://#{Thread.current[:http_host]}/#{rtype.to_s.pluralize}/#{res.uuid}"
   end
