@@ -146,6 +146,27 @@ module OMF::SliceService::Resource
       else
         raise OMF::SFA::AM::Rest::BadRequestException.new "Topology description needs to be a hash, but is a '#{topo.class}'"
       end
+      _add_service_hooks(rspec)
+      rspec
+    end
+
+    def _add_service_hooks(rspec)
+      #puts ">>>> ADDING SERVICES TO -- #{rspec.to_s}"
+      rspec.xpath('//n:node', n: Sliver::RSPEC3_NS).each do |n|
+        services =  (n.xpath 'n:services', n:  Sliver::RSPEC3_NS)[0]
+        unless services
+          services = Nokogiri::XML::Element.new('services', rspec)
+          n.add_child(services)
+        end
+        unless client_id = n['client_id']
+          warn "RSPEC doesn't have 'client_id' for - #{n}"
+          next
+        end
+        url = "#{self.href}/init_scripts/#{client_id}"
+        boot_s = Nokogiri::XML::Element.new("<execute command='wget -O - #{url}| /bin/bash' shell='sh'/>", rspec)
+        services.add_child("<execute command='wget -O - #{url} | /bin/bash' shell='sh'/>")
+      end
+      puts ">>>> MODIFIED RSPEC>>>> #{rspec.to_s}"
       rspec
     end
 

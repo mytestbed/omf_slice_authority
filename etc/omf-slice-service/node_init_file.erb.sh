@@ -1,8 +1,8 @@
 #!/bin/bash
 
 FRCP='amqp://srv.mytestbed.net'
-TOP_DIR=/tmp/slice_service
-UPDATE_URL='http://<%= Thread.current[:http_host] %>/slices/<%= slice.uuid %>/resource_progress/<%= node_name %>'
+TOP_DIR=/var/lib/slice_service
+UPDATE_URL='http://<%= slice.href %>/resource_progress/<%= node_name %>'
 
 rm -rf $TOP_DIR
 mkdir -p $TOP_DIR
