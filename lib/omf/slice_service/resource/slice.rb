@@ -164,7 +164,7 @@ module OMF::SliceService::Resource
         end
         url = "#{self.href}/init_scripts/#{client_id}"
         boot_s = Nokogiri::XML::Element.new("<execute command='wget -O - #{url}| /bin/bash' shell='sh'/>", rspec)
-        services.add_child("<execute command='wget -O - #{url} | /bin/bash' shell='sh'/>")
+        services.add_child("<execute command='wget -O - #{url} | sudo /bin/bash' shell='sh'/>")
       end
       puts ">>>> MODIFIED RSPEC>>>> #{rspec.to_s}"
       rspec
