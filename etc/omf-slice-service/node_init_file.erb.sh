@@ -49,7 +49,7 @@ if ! type "chef-solo" > /dev/null; then
 fi
 
 
-install_cookbook 'chef-repo-master' 'https://github.com/mytestbed/slice-service-chef-repo/archive/master.tar.gz'
-cd ${COOKBOOK_DIR}/chef-repo-master && chef-solo --no-fork -c solo/solo.rb -j solo/solo.json
+install_cookbook 'slice-service-chef-repo-master' 'https://github.com/mytestbed/slice-service-chef-repo/archive/master.tar.gz'
+cd ${COOKBOOK_DIR}/slice-service-chef-repo-master && chef-solo --no-fork -c solo/solo.rb -j solo/solo.json
 
 report_progress "status=finished_installing_cookbooks"
