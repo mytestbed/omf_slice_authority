@@ -64,7 +64,8 @@ module OMF::SliceService
       unless resources.key? node
         raise OMF::SFA::AM::Rest::UnknownResourceException.new("Don't know anything about '#{node}''")
       end
-      state = OpenStruct.new(node_name: node, slice: slice, resources: resources)
+      params = OMF::SliceService.configuration(:init_script)
+      state = OpenStruct.new(node_name: node, slice: slice, resources: resources, params: params)
       template = File.read INIT_FILE_TEMPLATE
       ERB.new(template).result(state.instance_eval { binding })
     end

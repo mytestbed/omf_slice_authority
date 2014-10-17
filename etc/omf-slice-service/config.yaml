@@ -18,3 +18,8 @@ slice_service:
       key: certs/testing.local.key
       ca: certs/trusted_roots.crt
 
+  init_script:
+    frcp: amqp://srv.mytestbed.net
+    oml_collect_uri: tcp:src.mytestbed:3004
+    top_dir: /var/lib/slice_service
+

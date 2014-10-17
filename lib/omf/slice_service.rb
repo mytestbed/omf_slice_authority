@@ -24,9 +24,14 @@ module OMF
       }
     }
 
+    def self.configuration(key)
+      @@opts[key.to_sym]
+    end
+
     def self.init(opts)
       require 'omf/slice_service/task/sfa'
       Task::SFA.init(opts)
+      @@opts = opts
 
       # SFA.instance.call() do |client, certs|
         # success, res = client.call2('lookupAM', {})
