@@ -20,6 +20,6 @@ slice_service:
 
   init_script:
     frcp: amqp://srv.mytestbed.net
-    oml_collect_uri: tcp:src.mytestbed:3004
+    oml_collect_uri: tcp:srv.mytestbed.net:3004
     top_dir: /var/lib/slice_service
 
