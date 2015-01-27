@@ -19,9 +19,9 @@ module OMF::SliceService::Task
         match: {
           KEY_MEMBER: user.urn
         },
-        speaking_for: user.urn
+        #speaking_for: user.urn
       }
-      SFA.call_ma(['lookup', 'KEY', :CERTS, opts], user).filter do |v|
+      SFA.call_ma(['lookup', 'KEY', :CERTS, opts]).filter do |v|
         #puts "LOOKUP SSH KEYS>>>> #{v}"
         v['value'].map do |k, v|
           v['KEY_PUBLIC']

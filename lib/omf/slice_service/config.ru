@@ -1,7 +1,7 @@
 
 require 'active_support/inflector'
 
-REQUIRE_LOGIN = false
+# REQUIRE_LOGIN = false
 
 require 'rack/file'
 class MyFile < Rack::File
@@ -41,10 +41,18 @@ use Rack::Cors, debug: true do
   end
 end
 
-require 'omf-sfa/am/am-rest/session_authenticator'
-use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
-          :login_url => (REQUIRE_LOGIN ? '/login' : nil),
-          :no_session => ['^/$', '^/login', '^/logout', '^/readme', '^/assets']
+PORT = opts[:port]
+cookie_key_affix = ENV['RACK_ENV'] == 'production' ? opts[:port] : Time.now
+#use ::Rack::Session::Cookie, secret: "70148654353960_1", key: "omf-slice-service.session.#{cookie_key_affix}"
+use ::Rack::Session::Pool
+
+require 'omf/slice_service/speaks_for_rack'
+use OMF::SliceService::SpeaksForRack
+
+# require 'omf-sfa/am/am-rest/session_authenticator'
+# use OMF::SFA::AM::Rest::SessionAuthenticator, #:expire_after => 10,
+#           :login_url => (REQUIRE_LOGIN ? '/login' : nil),
+#           :no_session => ['^/$', '^/login', '^/logout', '^/readme', '^/assets']
 
 map '/' do
   p = lambda do |env|
@@ -111,44 +119,44 @@ map '/manifests' do
   run p
 end
 
-map '/speaks_fors' do
-  p = lambda do |env|
-    req = ::Rack::Request.new(env)
-    obj_id = req.path_info.split('/')[-1]
-    #puts "OBJ_ID: #{obj_id}"
-    q = OMF::SFA::AM::Rest::RestHandler.parse_resource_uri(obj_id)
-    #puts "QQQQ: #{q}"
-    user = OMF::SliceService::Resource::User.first(q)
-    #puts "USER: #{user}"
-    unless user
-      return [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
-    end
-    case req.request_method
-    when 'GET'
-      if speaks_for = user.speaks_for.to_s
-        #speaks_for = speaks_for.string if speaks_for.is_a?(StringIO)
-        [200, {'Content-Type' => 'text/xml'}, speaks_for]
-      else
-        [204, {}, '']
-      end
-    when 'POST', 'PUT'
-      body = req.body
-      body = body.string if body.is_a?(StringIO)
-      if body.empty?
-        [400, {"Content-Type" => "text"}, "Can't find credential in body"]
-      else
-        user.speaks_for = body
-        user.save
-        [200, {'Content-Type' => 'text'}, 'OK']
-      end
-    when 'DELETE'
-      user.speaks_for = nil
-      user.save
-      [200, {'Content-Type' => 'text'}, 'OK']
-    end
-  end
-  run p
-end
+# map '/speaks_fors' do
+#   p = lambda do |env|
+#     req = ::Rack::Request.new(env)
+#     obj_id = req.path_info.split('/')[-1]
+#     #puts "OBJ_ID: #{obj_id}"
+#     q = OMF::SFA::AM::Rest::RestHandler.parse_resource_uri(obj_id)
+#     #puts "QQQQ: #{q}"
+#     user = OMF::SliceService::Resource::User.first(q)
+#     #puts "USER: #{user}"
+#     unless user
+#       return [401, {"Content-Type" => ""}, "Unknown resource '#{obj_id}'"]
+#     end
+#     case req.request_method
+#     when 'GET'
+#       if speaks_for = user.speaks_for.to_s
+#         #speaks_for = speaks_for.string if speaks_for.is_a?(StringIO)
+#         [200, {'Content-Type' => 'text/xml'}, speaks_for]
+#       else
+#         [204, {}, '']
+#       end
+#     when 'POST', 'PUT'
+#       body = req.body
+#       body = body.string if body.is_a?(StringIO)
+#       if body.empty?
+#         [400, {"Content-Type" => "text"}, "Can't find credential in body"]
+#       else
+#         user.speaks_for = body
+#         user.save
+#         [200, {'Content-Type' => 'text'}, 'OK']
+#       end
+#     when 'DELETE'
+#       user.speaks_for = nil
+#       user.save
+#       [200, {'Content-Type' => 'text'}, 'OK']
+#     end
+#   end
+#   run p
+# end
 
 map '/slice_credentials' do
   p = lambda do |env|
@@ -171,12 +179,12 @@ map '/slice_credentials' do
   run p
 end
 
-if REQUIRE_LOGIN
-  map '/login' do
-    require 'omf-sfa/am/am-rest/login_handler'
-    run OMF::SFA::AM::Rest::LoginHandler.new(opts[:am][:manager], opts)
-  end
-end
+# if REQUIRE_LOGIN
+#   map '/login' do
+#     require 'omf-sfa/am/am-rest/login_handler'
+#     run OMF::SFA::AM::Rest::LoginHandler.new(opts[:am][:manager], opts)
+#   end
+# end
 
 map "/readme" do
   require 'bluecloth'

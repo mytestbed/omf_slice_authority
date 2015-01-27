@@ -16,17 +16,15 @@ module OMF::SliceService::Task
   class LookupSlicesForMemberTask < AbstractTask
 
     def start(user)
-      promise = OMF::SFA::Util::Promise.new
+      #promise = OMF::SFA::Util::Promise.new
 
       opts = {
         match: { SLICE_EXPIRED: false },
         #match: { SLICE_EXPIRED: true },
-        speaking_for: user.urn # 'urn:publicid:IDN+ch.geni.net+user+maxott'
+        #speaking_for: user.urn # 'urn:publicid:IDN+ch.geni.net+user+maxott'
       }
-      context_id = OMF::SliceService::RequestContext.id
-
       promise = OMF::SFA::Util::Promise.new('LookupSlicesForMemberTask')
-      SFA.call_ch(['lookup_slices_for_member', user.urn, :CERTS, opts], user) \
+      SFA.call_ch(['lookup_slices_for_member', user.urn, :CERTS, opts]) \
       .on_error {|*msgs| promise.reject(*msgs) } \
       .on_success do |res|
         slices = res['value'].map do |sd|

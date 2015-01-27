@@ -9,8 +9,8 @@ module OMF::SliceService::Task
   DEF_BUSY_DELAY = 10 # How many seconds to wait before calling again when server is busy
 
   class MissingSpeaksForCredential < OMF::SFA::AM::Rest::RackException
-     def initialize(user)
-       super 400, "Missing speaks-for credential for user '#{user.name}'"
+     def initialize(request)
+       super 400, "Missing speaks-for credential for request '#{request}'"
      end
   end
 
@@ -31,6 +31,10 @@ module OMF::SliceService::Task
 
     def err_type
       ERR_CODES[@code].to_sym
+    end
+
+    def pretty_print
+      "#{self.class}: #{@message}"
     end
   end
 
@@ -91,16 +95,20 @@ module OMF::SliceService::Task
   class SFA < OMF::Base::LObject
     include Singleton
 
-    def self.call_ch(params, user = nil, credentials = nil, v3_credentials = true)
-      self.call(@@clearing_house_url, params, user, credentials, v3_credentials)
+    def self.call_ch(params, credentials = nil, v3_credentials = true, requires_speaks_for = true)
+      self.call(@@clearing_house_url, params, credentials, v3_credentials, requires_speaks_for)
     end
 
-    def self.call_ma(params, user = nil, credentials = nil, v3_credentials = true)
-      self.call(@@member_authority_url, params, user, credentials, v3_credentials)
+    def self.call_ma(params, credentials = nil, v3_credentials = true, requires_speaks_for = true)
+      self.call(@@member_authority_url, params, credentials, v3_credentials, requires_speaks_for)
     end
 
-    def self.call(authority, params, user = nil, credentials = nil, v3_credentials = true)
-      self.instance.call(authority, params, user, credentials, v3_credentials)
+    def self.call_sa(params, credentials = nil, v3_credentials = true, requires_speaks_for = true)
+      self.call_ch(params, credentials, v3_credentials, requires_speaks_for)
+    end
+
+    def self.call(authority, params, credentials = nil, v3_credentials = true, requires_speaks_for = true)
+      self.instance.call(authority, params, credentials, v3_credentials, requires_speaks_for)
     end
 
 
@@ -156,7 +164,7 @@ module OMF::SliceService::Task
 
     def self.check_clearinghouse_version
       info "Checking Clearinghouse API version at '#{@@clearing_house_url}'"
-      call_ch(['get_version']).on_success do |res|
+      call_ch(['get_version'], nil, false, false).on_success do |res|
         res['value'].each do |k, v|
           case k.strip
           when 'VERSION'
@@ -182,7 +190,7 @@ module OMF::SliceService::Task
     #   call(@@member_authority_url, params, user)
     # end
 
-    def call(url, params, user = nil, credentials = nil, v3_credentials = true)
+    def call(url, params, credentials = nil, v3_credentials = true, requires_speaks_for = true)
       promise = OMF::SFA::Util::Promise.new
       client = XMLRPC::Client.new2(url, nil, 300)
       client.ssl_options = @@ssl_options
@@ -190,19 +198,20 @@ module OMF::SliceService::Task
       unless certs.is_a? Array
         certs = [certs]
       end
-      if user
-        unless speaks_for = user.speaks_for
-          debug "Can't call CH because of missing speaks-for - #{params}"
-          raise MissingSpeaksForCredential.new(user)
+      if requires_speaks_for
+        unless speaks_for = Thread.current[:speaks_for]
+          debug "Can't call #{url} because of missing speaks-for - #{params}"
+          raise MissingSpeaksForCredential.new(params)
         end
+        params[:speaking_for] = speaks_for[:urn]
         if v3_credentials
           certs << {
             geni_type: 'geni_abac',
             geni_version: 1,
-            geni_value: speaks_for
+            geni_value: speaks_for[:cred]
           }
         else
-          certs << speaks_for
+          certs << speaks_for[:cred]
         end
       end
       run(client, url, params, certs, promise)
@@ -238,7 +247,7 @@ module OMF::SliceService::Task
               end
             else
               warn "SFA call returned error - #{code} - #{res} - call: #{params.join(' ')}"
-              promise.reject(SFAException.new(code, res['output']))
+              promise.reject(code, SFAException.new(code, res['output']))
             end
           else
             promise.resolve(res)

@@ -25,6 +25,11 @@ module OMF::SliceService::Resource
     oproperty :slice_creation_pending, :boolean
     oproperty :progress, String, :functional => false
 
+    # TODO: This is a hack, but until we keep track of resources
+    # as individual records, this is the best we can do
+    oproperty :nodes_starting_chef, Integer
+    oproperty :nodes_finishing_chef, Integer
+
     def expired?
       self.expiration < Time.now
     end
@@ -93,6 +98,8 @@ module OMF::SliceService::Resource
         #puts ">>>>>>>>> OLD DELETED"
         promise.progress "Old slivers cleaned up" unless old_slivers.empty?
         self.slivers.clear
+        self.nodes_starting_chef = 0
+        self.nodes_finishing_chef = 0
         cms.each do |cm|
           sliver = Sliver.create_for_component_manager(cm, rspec, slice_member, promise)
           sliver.on_status do |state|
@@ -266,6 +273,30 @@ module OMF::SliceService::Resource
     def slice_members(refresh = false)
       # there is a bug in the delete logic regarding non-functional objects
       _slice_memberships.compact
+    end
+
+    alias :_slivers :slivers
+    def slivers
+      slivers = self._slivers
+      puts ">>>> SLIVERS >>>> #{slivers.empty?}"
+      if slivers.empty? && smp = Thread.current[:slice_member]
+        promise = OMF::SFA::Util::Promise.new('Obtaining sliver info')
+        smp.on_success do |sm|
+          OMF::SliceService::Task::SASliverInfo(sm.slice, sm).on_success do |r|
+            #puts ">>>REPLY>>>>>> #{r}"
+            sliver_urns = (r.values.map {|i| i["SLIVER_INFO_AGGREGATE_URN"]}).uniq
+            slivers = sliver_urns.map do |cm_urn|
+              authority = Authority.first(urn: cm_urn)
+              sliver = Sliver.create(slice: self, slice_member: sm, authority: authority)
+              self.slivers << sliver
+            end
+            self.save
+            promise.resolve(slivers)
+          end.on_error(promise).on_progress(promise)
+        end.on_error(promise).on_progress(promise)
+        slivers = promise
+      end
+      slivers
     end
 
     # Return a hash describing information a resource

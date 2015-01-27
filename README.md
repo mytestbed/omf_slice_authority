@@ -56,15 +56,14 @@ which should result in something like:
 REST API
 --------
 
-The Slice Service is primarily providing coordination across other services with some of
-them requiring substantial time to complete. To stay with the asynchronous nature of 
+The **Slice Service** is primarily providing coordination across other services, such as the _Federation Services_ [[V2][Fedv2], [V3][Fedv3]] and various _Aggregate Managers_ [[V2][AMv2], [V3][AMv3]]. As many of these service calls requiring substantial time to complete and to stay with the asynchronous nature of 
 web services, this service is using two mechanisms to indicate state and progress.
 
-If the Slice Service is missing necessary information to even get started processing
+If the **Slice Service** is missing necessary information to even get started processing
 a request, it will return a 504 (Gateway Timeout) error, indicating that it is safe
 to retry the same request in a short time (~ 10sec).
 
-If a request is accepted but will require time to complete, the Slice Service will
+If a request is accepted but will require time to complete, the **Slice Service** will
 return a 301 redirect to a promise resource which should ultimately return the 
 originally requested resource. The Promise resource will return a 504 code while
 the associated work is in progress. When the promise is resolved it will either return
@@ -103,8 +102,44 @@ check the state of the promise.
         ...
 
 
-
 The following assumes that service is running locally and listens at port 8006.
+
+### Authentication & Authorisation
+
+As mentioned above, this service is primarily a coordination activity calling on other services to
+do the actual work. In the GENI context, any "restricted" call needs to be accompanied by a set of
+credentials identifying the identity and privileges of the caller. As this service is calling
+_on behalf of someone else_, it needs to include a [_Speaks For_](http://groups.geni.net/geni/raw-attachment/wiki/GEC19Agenda/DeveloperTopics/SpeaksFor-TomMitchell.pdf) credential with each of these calls.
+These credentials need to come from the caller of this service.
+
+One option would be to authenticate users to this service and provide a mechanism to store their
+_speaksFor_ credentials, another option is to request the caller to associate the appropriate
+credentials with each session.
+
+It is the later we have implemented. There is no specific authentication step. We use the normal HTTP
+session context for users to upload _speaksFor_ credentials:
+
+    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/_some_tag_
+
+The optional "_some_tag_" tag allows for uploading multiple _speaksFor_ credentials to be individually
+selected within a specific call through the HTTP header field __X-SpeaksFor__.
+
+    $ curl ... -H "X-SpeaksFor: _some_tag_" ...
+
+If only one _speaksFor_ is uploaded it is used by default and therefore doesn't require the __X-SpeaksFor__
+header.
+
+Please note, that the uploaded credentials are only valid within a specific session. When the session has
+ended or expired, all associated credentials will be deleted.
+
+A list of the currently active credentials can be obtained through the following call which will
+return the list of registered tags.
+
+    $ curl http://localhost:8006/speaks_fors
+    [ "_some_tag_" ]
+
+The tag "__default__" is used if only one _speaksFor_ is uploaded and no tag name was provided.
+
 
 ### User
 
@@ -216,10 +251,19 @@ Just point your browser at [http://localhost:8006](/)
 Debugging Hints
 ---------------
 
-Verifying that public and private key belong together [[0](http://stackoverflow.com/a/280912/3528225)]
+Verifying that public and private key belong together [[ref][0]]
 
     Certificate: openssl x509 -noout -modulus -in server.crt | openssl md5
     Private Key: openssl rsa -noout -modulus -in server.key | openssl md5
     CSR: openssl req -noout -modulus -in server.csr | openssl md5
 
 
+[0]: http://stackoverflow.com/a/280912/3528225 "StackOverflow: How do you test a public/private keypair?"
+
+[Fedv2]:  http://groups.geni.net/geni/wiki/CommonFederationAPIv2 "Federation Service API"
+
+[Fedv3]: https://fed4fire-testbeds.ilabt.iminds.be/asciidoc/federation-am-api.html "Federation AM API"
+
+[AMv2]: http://groups.geni.net/geni/wiki/GAPI_AM_API_V2 "GENI Aggregate Manager API Version 2"
+
+[AMv3]: http://groups.geni.net/geni/wiki/GAPI_AM_API_V3 "GENI Aggregate Manager API Version 3"

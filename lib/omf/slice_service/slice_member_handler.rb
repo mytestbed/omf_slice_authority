@@ -46,7 +46,7 @@ module OMF::SliceService
     #
     def find_resource(resource_uri, description = {}, opts = {})
       user = opts[:contexts][:users]
-      user.find_slice_member(resource_uri)
+      Thread.current[:slice_member] = user.find_slice_member(resource_uri)
     end
 
     def add_resource_to_context(slice_member, context)

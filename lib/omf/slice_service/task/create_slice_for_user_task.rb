@@ -29,9 +29,9 @@ module OMF::SliceService::Task
         SLICE_PROJECT_URN: slice_descr[:project],
       }
       fields.each {|key, value| fields.delete(key) if value.nil? }
-      opts = { fields: fields, speaking_for: user.urn }
+      opts = { fields: fields }
       promise = OMF::SFA::Util::Promise.new
-      SFA.call_ch(['create', 'SLICE', :CERTS, opts], user) \
+      SFA.call_ch(['create', 'SLICE', :CERTS, opts]) \
         .on_error {|*msgs| promise.reject(*msgs) } \
         .on_success do |res|
           unless res['code'] == 0

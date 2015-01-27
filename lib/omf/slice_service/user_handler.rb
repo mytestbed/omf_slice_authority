@@ -27,6 +27,18 @@ module OMF::SliceService
       }
     end
 
+    # Allow sub class to override actual finding of resource - may create it on the fly
+    def _find_resource(descr)
+      debug "Finding User - #{descr}"
+      unless user = @resource_class.first(descr)
+        # If descr is a 'urn', let's look it up
+        if user_urn = descr[:urn]
+          user = @resource_class.create_from_urn(user_urn)
+        end
+      end
+      user
+    end
+
     # redirect speaks_for to /speaks_for
     def after_resource_to_hash_hook(res_hash, res)
       if res_hash.key? :speaks_for

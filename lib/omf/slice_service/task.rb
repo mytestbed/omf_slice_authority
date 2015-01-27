@@ -6,6 +6,14 @@ module OMF
 
       class ServiceVersionNotSupportedException < TaskException; end
       class TaskTimeoutException < TaskException; end
+
+      class SliverNotFoundException < TaskException
+        attr_reader :sliver
+
+        def initialize(sliver)
+          @sliver = sliver
+        end
+      end
     end
   end
 end
@@ -23,5 +31,7 @@ require 'omf/slice_service/task/delete_sliver_task'
 require 'omf/slice_service/task/renew_sliver_task'
 require 'omf/slice_service/task/sliver_status_task'
 require 'omf/slice_service/task/list_sliver_resources_task'
+require 'omf/slice_service/task/sa_sliver_info_task'
 
+require 'omf/slice_service/task/lookup_member_info_task.rb'
 require 'omf/slice_service/task/lookup_member_ssh_keys_task.rb'

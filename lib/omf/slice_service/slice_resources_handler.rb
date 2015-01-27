@@ -16,7 +16,7 @@ module OMF::SliceService
       opts[:slice_resources_handler] = self
     end
 
-    # Override finding slice member as it needs to be done in the context of the
+    # Override finding specific resource as it needs to be done in the context of the
     # slice, can't be done directly.
     #
     def find_resource(resource_uri, description = {}, opts = {})
@@ -31,7 +31,13 @@ module OMF::SliceService
     end
 
     def on_post(resource_uri, opts)
-      raise IllegalMethodException.new("Can't modify resources, only PUT supported")
+      puts ">>> URI #{resource_uri} -- #{opts.keys}"
+      if resource_uri
+        body, dummy = parse_body(opts, [:json, :form])
+        puts "BODY>>>> #{body}"
+        return ['application/json', {}]
+      end
+      raise OMF::SFA::AM::Rest::IllegalMethodException.new("Can't modify resources, only PUT supported")
     end
 
     def on_put(resource_uri, opts)

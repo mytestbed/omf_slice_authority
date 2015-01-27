@@ -26,7 +26,6 @@ module OMF::SliceService::Task
     def start2(sliver, slice_member)
       am_url = sliver.authority.aggregate_manager_2
       slice = sliver.slice
-      user = slice_member.user
 
       promise = OMF::SFA::Util::Promise.new
       slice_member.slice_credential.on_success do |slice_credential|
@@ -48,10 +47,10 @@ module OMF::SliceService::Task
           },
           geni_compressed: true,
           geni_slice_urn: slice.urn,
-          speaking_for: user.urn
+          #speaking_for: user.urn
         }
         cred = slice_credential.map {|c| c["geni_value"] }
-        SFA.call(am_url, ['ListResources', :CERTS, opts], user, cred, false).on_success do |reply|
+        SFA.call(am_url, ['ListResources', :CERTS, opts], cred, false).on_success do |reply|
           debug "Successfully queried sliver resource '#{slice}@#{am_url}'"
           begin
             manifest = Zlib::Inflate.inflate(Base64.decode64(reply['value']))

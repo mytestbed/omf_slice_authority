@@ -32,13 +32,11 @@ module OMF::SliceService::Task
         #                     string rspec,
         #                     struct users[],
         #                     struct options)
-        opts = {
-          speaking_for: user.urn
-        }
+        opts = {}
         users = [{urn: user.urn, keys: ssh_keys}]
         cred = slice_credential.map {|c| c["geni_value"] }
         promise.progress "Calling 'CreateSliver' on '#{sliver.authority.name}'"
-        SFA.call(url, ['CreateSliver', slice.urn, :CERTS, rspec.to_s, users, opts], user, cred, false) \
+        SFA.call(url, ['CreateSliver', slice.urn, :CERTS, rspec.to_s, users, opts], cred, false) \
           .on_error do |code, ex|
             #puts ">>>CRETA ERROR@ >>> #{ex.error? :refused} -- #{ex.match(/.*Must delete existing slice first/)}"
             if ex.is_a? OMF::SliceService::Task::SFAException

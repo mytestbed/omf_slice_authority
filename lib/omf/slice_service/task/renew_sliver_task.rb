@@ -20,7 +20,6 @@ module OMF::SliceService::Task
 
     def start2(authority, expiration_time, slice_member)
       slice = slice_member.slice
-      user = slice_member.user
       slice_credential_promise = slice_member.slice_credential
       url = authority.aggregate_manager_2
 
@@ -31,12 +30,10 @@ module OMF::SliceService::Task
         #                    string credentials[],
         #                    string expiration_time,
         #                    struct options)
-        opts = {
-          speaking_for: user.urn
-        }
-        users = [{urn: user.urn, keys: ssh_keys}]
+        opts = {}
+        #users = [{urn: user.urn, keys: ssh_keys}]
         cred = slice_credential.map {|c| c["geni_value"] }
-        SFA.call(url, ['RenewSliver', slice.urn, :CERTS, expiration_time.to_s, opts], user, cred, false).on_success do |reply|
+        SFA.call(url, ['RenewSliver', slice.urn, :CERTS, expiration_time.to_s, opts], cred, false).on_success do |reply|
           debug "Successfully renewed sliver '#{slice.urn}@#{url}' - #{reply}"
           promise.resolve(reply['value'])
         end.on_error(promise)

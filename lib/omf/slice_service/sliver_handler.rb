@@ -16,6 +16,7 @@ module OMF::SliceService
 
       # Define handlers
       opts[:sliver_handler] = self
+      @coll_handlers = {}
     end
 
     # Override finding slice member as it needs to be done in the context of the

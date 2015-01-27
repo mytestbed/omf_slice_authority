@@ -27,7 +27,6 @@ module OMF::SliceService::Task
 
     def start2(sliver, slice_member)
       slice = sliver.slice
-      user = slice_member.user
       url = sliver.authority.aggregate_manager_2
 
       promise = OMF::SFA::Util::Promise.new
@@ -36,11 +35,9 @@ module OMF::SliceService::Task
         # struct SliverStatus(string slice_urn,
         #                    string credentials[],
         #                    struct options)
-        opts = {
-          speaking_for: user.urn
-        }
+        opts = {}
         cred = slice_credential.map {|c| c["geni_value"] }
-        SFA.call(url, ['SliverStatus', slice.urn, :CERTS, opts], user, cred, false).on_success do |reply|
+        SFA.call(url, ['SliverStatus', slice.urn, :CERTS, opts], cred, false).on_success do |reply|
           #debug "Successfully queried sliver status '#{slice.urn}@#{url}' - #{reply}"
           debug "Successfully queried sliver status '#{slice.urn}@#{url}'"
           promise.resolve(reply['value'])

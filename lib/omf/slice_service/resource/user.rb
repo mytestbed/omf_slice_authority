@@ -19,13 +19,28 @@ module OMF::SliceService::Resource
     SSH_CHECK_INTERVAL = 600
 
     oproperty :created_at, DataMapper::Property::Time
-    oproperty :speaks_for, String
+    #oproperty :speaks_for, String
     oproperty :authorized_until, DataMapper::Property::Time
     oproperty :email, String
     oproperty :slice_memberships, :slice_member, functional: false, inverse: :user
     oproperty :slice_memberships_checked_at, DataMapper::Property::Time
     oproperty :ssh_keys, String
     oproperty :ssh_keys_checked_at, DataMapper::Property::Time
+
+    def self.create_from_urn(user_urn)
+      promise = OMF::SFA::Util::Promise.new('create_user_from_urn')
+      Task::LookupMemberInfo(user_urn) \
+      .on_success do |user_info|
+        puts ">>> USER INFO - #{user_info["MEMBER_USERNAME"]} - #{user_info.keys}"
+        # user_info: ["MEMBER_UID", "MEMBER_URN", "_GENI_MEMBER_ENABLED", "MEMBER_USERNAME",
+        # "_GENI_ENABLE_WIMAX", "_GENI_ENABLE_IRODS",
+        # "_GENI_MEMBER_INSIDE_CERTIFICATE", "_GENI_MEMBER_SSL_EXPIRATION",
+        # "_GENI_ENABLE_WIMAX_BUTTON", "_GENI_MEMBER_SSL_CERTIFICATE"]
+        #debug "slice member create #{sm} - #{promise}"
+        #promise.resolve(sm)
+      end.on_error(promise)
+      promise
+    end
 
     def authorized?
       self.authorized_until != nil && self.authorized_until < Time.now
