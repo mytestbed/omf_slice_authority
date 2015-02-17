@@ -1,0 +1,79 @@
+{
+  "graph": {
+    "mode": "NORMAL",
+    "nodes": [
+      {
+        "_id": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+        "_type": "node",
+        "disk_image": "gimi.iso",
+        "sliver_type": "tiny",
+        "_x": 314,
+        "_y": 206
+      },
+      {
+        "_id": "98020d5a-2888-446c-990b-c37d8fe37f37",
+        "_type": "node",
+        "_x": 169,
+        "_y": 216
+      },
+      {
+        "_id": "e9420cfb-4297-488a-8325-232e03f2e385",
+        "_type": "network",
+        "_x": 237,
+        "_y": 81
+      },
+      {
+        "_id": "652d2adc-8554-44ed-b876-900afdc947c7",
+        "_type": "node",
+        "_x": 104,
+        "_y": 141
+      }
+    ],
+    "edges": [
+      {
+        "_id": "5bcbcfa4-e624-41f6-8ab5-6fd712ab6fcc",
+        "_type": "link",
+        "_source": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+        "_target": "98020d5a-2888-446c-990b-c37d8fe37f37",
+        "head": {
+          "name": "if0",
+          "ip": { "address": "10.0.5.2", "type": "ipv4", "netmask": "255.255.255.0" }
+        },
+        "tail": {
+          "ip": { "address": "10.0.5.3", "type": "ipv4", "netmask": "255.255.255.0" }
+        }
+      },
+      {
+        "_id": "0db526d1-98d5-45c7-9f6c-906eb0811923",
+        "_type": "link",
+        "_source": "652d2adc-8554-44ed-b876-900afdc947c7",
+        "_target": "e9420cfb-4297-488a-8325-232e03f2e385"
+      },
+      {
+        "_id": "16dd3950-93f2-4ff5-991c-ca8f7a87ad75",
+        "_type": "link",
+        "_source": "98020d5a-2888-446c-990b-c37d8fe37f37",
+        "_target": "e9420cfb-4297-488a-8325-232e03f2e385"
+      },
+      {
+        "_id": "e61e67a0-77d9-42b4-b7b9-803aec491c05",
+        "_type": "link",
+        "_source": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+        "_target": "e9420cfb-4297-488a-8325-232e03f2e385"
+      }
+    ],
+    "defaults": {
+      "node": {
+        "disk_image": {"ref": "8ec2c565-c3b5-452c-be2b-d58d18fe590b"},
+        "sliver_type": {"ref": "8ec2c565-c3b5-452c-be2b-d58d18fe590b"},
+        "recipes": [
+          "http://github.com/mytestbed/sample_recipe"
+        ]
+      },
+      "interface": {
+      },
+      "network": {
+      }
+    }
+  }
+}

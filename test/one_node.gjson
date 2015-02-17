@@ -1,0 +1,26 @@
+{
+  "graph": {
+    "mode": "NORMAL",
+    "nodes": [
+      {
+        "_id": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+        "_type": "node",
+        "disk_image": "gimi.iso",
+        "sliver_type": "tiny",
+        "_x": 314,
+        "_y": 206
+      }
+    ],
+    "edges": [],
+    "defaults": {
+      "node": {
+        "disk_image": "8ec2c565-c3b5-452c-be2b-d58d18fe590b",
+        "sliver_type": "8ec2c565-c3b5-452c-be2b-d58d18fe590b"
+      },
+      "interface": {
+      },
+      "network": {
+      }
+    }
+  }
+}

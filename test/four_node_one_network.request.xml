@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<rspec xmlns="http://www.geni.net/resources/rspec/3" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ol="http://nitlab.inf.uth.gr/schema/sfa/rspec/1" xmlns:omf="http://schema.mytestbed.net/sfa/rspec/1" xmlns:exo_sliver="http://groups.geni.net/exogeni/attachment/wiki/RspecExtensions/sliver-info/1" xmlns:exo_slice="http://groups.geni.net/exogeni/attachment/wiki/RspecExtensions/slice-info/1" type="request" generated="2014-06-21T11:13:09+01:00">
+  <node uuid="8ec2c565-c3b5-452c-be2b-d58d18fe590b" client_id="r70307026444360" exclusive="true">
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <interface uuid="564750c6-9175-4a7f-b793-02cdbd99d7ad" client_id="r70307026444360:if0">
+      <ip_address uuid="974d0cf9-35ad-499b-8d47-5203a653ed05" address="10.0.5.3" type="ipv4" netmask="255.255.255.0"/>
+    </interface>
+    <interface uuid="75b1c39d-00ca-4070-b414-6f4bab7ca299" client_id="r70307026444360:if1"/>
+    <services>
+      <install uuid="37edc477-8632-4c8f-9d70-52edcee502fc" install_path="/local" url="http://emmy9.casa.umass.edu/InstaGENI_Images/install-script.tar.gz"/>
+      <execute uuid="91f34420-96dd-4f31-a393-0c64336ed251" command="sudo sh /local/postboot_script.sh" shell="sh"/>
+    </services>
+    <sliver_type uuid="7813452b-051a-414e-8fb7-764d83aebe31" name="emulab-xen">
+      <disk_image uuid="96b8536f-37d4-434a-9a3c-825ee3a3ebf4" name="https://www.instageni.illinois.edu/image_metadata.php?uuid=df9ce62b-ec1a-11e3-bc1a-000000000000"/>
+    </sliver_type>
+  </node>
+  <node uuid="98020d5a-2888-446c-990b-c37d8fe37f37" client_id="r70307012985740" exclusive="true">
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <interface uuid="9d5b6685-114a-4f5b-97e3-f0eaaaaf0c33" client_id="r70307012985740:if0">
+      <ip_address uuid="6842537b-bdd3-49f8-92a5-b42ec7728af1" address="10.0.5.2" type="ipv4" netmask="255.255.255.0"/>
+    </interface>
+    <interface uuid="d134f857-7115-4bd0-bdf2-470e6e6d6b9a" client_id="r70307012985740:if1"/>
+    <services>
+      <install uuid="37edc477-8632-4c8f-9d70-52edcee502fc" install_path="/local" url="http://emmy9.casa.umass.edu/InstaGENI_Images/install-script.tar.gz"/>
+      <execute uuid="91f34420-96dd-4f31-a393-0c64336ed251" command="sudo sh /local/postboot_script.sh" shell="sh"/>
+    </services>
+    <sliver_type uuid="7813452b-051a-414e-8fb7-764d83aebe31" name="emulab-xen">
+      <disk_image uuid="96b8536f-37d4-434a-9a3c-825ee3a3ebf4" name="https://www.instageni.illinois.edu/image_metadata.php?uuid=df9ce62b-ec1a-11e3-bc1a-000000000000"/>
+    </sliver_type>
+  </node>
+  <node uuid="652d2adc-8554-44ed-b876-900afdc947c7" client_id="r70307027422260" exclusive="true">
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <interface uuid="ee0c1676-0c68-4a96-a6c7-96d04297d3a3" client_id="r70307027422260:if0"/>
+    <services>
+      <install uuid="37edc477-8632-4c8f-9d70-52edcee502fc" install_path="/local" url="http://emmy9.casa.umass.edu/InstaGENI_Images/install-script.tar.gz"/>
+      <execute uuid="91f34420-96dd-4f31-a393-0c64336ed251" command="sudo sh /local/postboot_script.sh" shell="sh"/>
+    </services>
+    <sliver_type uuid="7813452b-051a-414e-8fb7-764d83aebe31" name="emulab-xen">
+      <disk_image uuid="96b8536f-37d4-434a-9a3c-825ee3a3ebf4" name="https://www.instageni.illinois.edu/image_metadata.php?uuid=df9ce62b-ec1a-11e3-bc1a-000000000000"/>
+    </sliver_type>
+  </node>
+  <link uuid="5bcbcfa4-e624-41f6-8ab5-6fd712ab6fcc" client_id="r70307012512200">
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <interface_ref client_id="r70307026444360:if0"/>
+    <interface_ref client_id="r70307012985740:if0"/>
+    <link_type name="lan"/>
+  </link>
+  <link uuid="e9420cfb-4297-488a-8325-232e03f2e385" client_id="r70307027306520">
+    <component_manager name="urn:publicid:IDN+emulab.net+authority+cm"/>
+    <interface_ref client_id="r70307027422260:if0"/>
+    <interface_ref client_id="r70307012985740:if1"/>
+    <interface_ref client_id="r70307026444360:if1"/>
+    <link_type name="lan"/>
+  </link>
+</rspec>
