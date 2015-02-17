@@ -1,5 +1,3 @@
-
-
 require 'rack/request'
 require 'rack/utils'
 
@@ -46,7 +44,7 @@ module OMF::SliceService
       unless speaks_for[:expires] > (Time.now + 60)
         return [400, {'Content-Type' => 'text'}, 'Speaks-for credential already expired']
       end
-      debug "urn: #{urn}"
+
       Thread.current[:speaks_for] = speaks_for
       nil
     end
@@ -58,7 +56,6 @@ module OMF::SliceService
       req = ::Rack::Request.new(env)
       urn = req.path_info.split('/')[2]
       session = req.session[:speaks_for] ||= {}
-
       case req.request_method
         when 'GET'
           if urn

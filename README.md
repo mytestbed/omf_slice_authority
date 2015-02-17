@@ -56,7 +56,7 @@ which should result in something like:
 REST API
 --------
 
-The **Slice Service** is primarily providing coordination across other services, such as the _Federation Services_ [[V2][Fedv2], [V3][Fedv3]] and various _Aggregate Managers_ [[V2][AMv2], [V3][AMv3]]. As many of these service calls requiring substantial time to complete and to stay with the asynchronous nature of 
+The **Slice Service** is primarily providing coordination across other services, such as the _Federation Services_ [[V2][Fedv2], [V3][Fedv3]] and various _Aggregate Managers_ [[V2][AMv2], [V3][AMv3]]. As many of these service calls requiring substantial time to complete and to stay with the asynchronous nature of
 web services, this service is using two mechanisms to indicate state and progress.
 
 If the **Slice Service** is missing necessary information to even get started processing
@@ -64,13 +64,13 @@ a request, it will return a 504 (Gateway Timeout) error, indicating that it is s
 to retry the same request in a short time (~ 10sec).
 
 If a request is accepted but will require time to complete, the **Slice Service** will
-return a 301 redirect to a promise resource which should ultimately return the 
+return a 301 redirect to a promise resource which should ultimately return the
 originally requested resource. The Promise resource will return a 504 code while
 the associated work is in progress. When the promise is resolved it will either return
 the result of the original request with a 200 code, or any respective error code
 if the request cannot be fulfilled. Please note, that promises are temporary resources
-which may be removed some time after the associated request has completed. However, this 
-should not be a concern in normal operation where a client is expected to regularly 
+which may be removed some time after the associated request has completed. However, this
+should not be a concern in normal operation where a client is expected to regularly
 check the state of the promise.
 
     $ curl -v -L http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+maxott/slice_members
@@ -81,7 +81,7 @@ check the state of the promise.
     > GET /promises/22ccd749-9b67-41ee-9de2-afee6ad0457c HTTP/1.1
     ...
     < HTTP/1.1 504 Gateway Time-out
-    ... 
+    ...
     {
       "type": "retry",
       "delay": 10,
@@ -92,7 +92,7 @@ check the state of the promise.
       ]
     }
     ...
-    $ curl -v -L http://localhost:8006/promises/22ccd749-9b67-41ee-9de2-afee6ad0457c 
+    $ curl -v -L http://localhost:8006/promises/22ccd749-9b67-41ee-9de2-afee6ad0457c
     < HTTP/1.1 200 OK
     ...
     [
@@ -119,7 +119,7 @@ credentials with each session.
 It is the later we have implemented. There is no specific authentication step. We use the normal HTTP
 session context for users to upload _speaksFor_ credentials:
 
-    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/_some_tag_
+    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/_some_tag_ -c cookie_jar.txt -b cookie_jar.txt
 
 The optional "_some_tag_" tag allows for uploading multiple _speaksFor_ credentials to be individually
 selected within a specific call through the HTTP header field __X-SpeaksFor__.
@@ -130,7 +130,7 @@ If only one _speaksFor_ is uploaded it is used by default and therefore doesn't 
 header.
 
 Please note, that the uploaded credentials are only valid within a specific session. When the session has
-ended or expired, all associated credentials will be deleted.
+ended or expired, all associated credentials will be deleted.  In order to maintain session state across multiple cURL commands use the -b and -c flags to specify the local cookie store.
 
 A list of the currently active credentials can be obtained through the following call which will
 return the list of registered tags.
@@ -155,7 +155,7 @@ resources. To list all users:
       {
          ...
     ]
-    
+
 To find out more about a particular user:
 
     $ curl http://localhost:8006/users/urn:publicid:IDN+ch.geni.net+user+maxott
@@ -171,7 +171,7 @@ To find out more about a particular user:
       "ssh_keys": "http://localhost:8006/users/22ccd749-9b67-41ee-9de2-afee6ad0457c/ssh_keys",
       "ssh_keys_checked_at": "2014-10-04T15:42:14+10:00"
     }
-    
+
 To create a new user:
 
     $ curl -X POST -H "Content-Type: application/json" \
@@ -208,10 +208,10 @@ To get a listing of all the active slices a user is a member of:
       },
       ...
 
-Please be prepared to receive a '504' HTTP response, as discussed above, requesting you to try again 
-in a few seconds. 
+Please be prepared to receive a '504' HTTP response, as discussed above, requesting you to try again
+in a few seconds.
 
-    
+
 ......
 
     bin/request_slice -v -p bin/create_slice -s urn:publicid:IDN+ch.geni.net:max_mystery_project+slice+foo71 -u urn:publicid:IDN+ch.geni.net+user+maxott -p urn:publicid:IDN+ch.geni.net+project+mystery_project -u urn:publicid:IDN+ch.geni.net+user+maxott --url http://localhost:8006 -s foo80 test/one_node_openvz.xml

@@ -30,3 +30,9 @@ gem 'rack-cors', :require => 'rack/cors'
 
 # TODO: Check if this is still needed. New macaddr gem forgot that
 gem 'systemu'
+
+group :development, :test do
+  gem 'rspec'
+  gem "rack-test", require: "rack/test"
+  gem 'pry'
+end

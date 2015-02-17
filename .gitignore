@@ -1,6 +1,7 @@
 .project
 Gemfile.lock
 .DS_Store
+.rvmrc
 .bundle/
 .idea/
 bin/omf_slice_service
