@@ -203,7 +203,9 @@ module OMF::SliceService::Task
           debug "Can't call #{url} because of missing speaks-for - #{params}"
           raise MissingSpeaksForCredential.new(params)
         end
-        params[:speaking_for] = speaks_for[:urn]
+        #params[:speaking_for] = speaks_for[:urn]
+        # params is an array not a hash
+        params = params.inject([]) {|r, e| r << ((e.is_a?(Hash) && e[:match]) ? e[:match].merge(:speaking_for => speaks_for[:urn]) : e)}
         if v3_credentials
           certs << {
             geni_type: 'geni_abac',
