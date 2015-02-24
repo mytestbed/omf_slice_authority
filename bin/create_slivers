@@ -79,7 +79,7 @@ elsif gf[0] == '<'
   }
 end
 
-uri = URI.parse(url + '/users/' + user + '/slice_members/' + slice_name + '/slice?_level=2')
+uri = URI.parse(url + '/users/' + user + '/slice_memberships/' + slice_name + '/slice?_level=2')
 req = {
   #_request_id: UUID.new.generate,
   topology: graph

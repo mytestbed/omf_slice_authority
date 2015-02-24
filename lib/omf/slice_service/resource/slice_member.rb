@@ -57,7 +57,8 @@ module OMF::SliceService::Resource
       if scred = self._slice_credential
         OMF::SFA::Util::Promise.new.resolve(scred)
       else
-        OMF::SliceService::Task::GetSliceCredential(self.slice, self.user).on_success do |sc|
+        #OMF::SliceService::Task::GetSliceCredential(self.slice, self.user).on_success do |sc|
+        OMF::SliceService::Task::GetSliceCredential(self.slice).on_success do |sc|
           #puts "SLICE_CRED>>> #{sc.inspect[0 .. 100]}"
           self.slice_credential = sc
           self.save

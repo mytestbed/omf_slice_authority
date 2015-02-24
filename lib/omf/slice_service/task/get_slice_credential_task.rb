@@ -15,7 +15,9 @@ module OMF::SliceService::Task
   class GetSliceCredentialTask < AbstractTask
 
     def start(slice)
-      opts = {}
+      opts = {
+        match: {}
+      }
       SFA.call_ch(['get_credentials', slice.urn, :CERTS, opts]).filter do |v|
         v['value']
       end

@@ -181,8 +181,10 @@ module OMF::SliceService::Resource
       if (Time.now - (self.slice_memberships_checked_at || 0)).to_i > (refresh ? min_time : SLICE_CHECK_INTERVAL)
         self.slice_memberships_checked_at = Time.now
         debug "Need to check CH for slice membership changes for '#{self}'"
+        _speaks_for = Thread.current[:speaks_for]
         OMF::SliceService::Task::LookupSlicesForMember(self) \
         .on_success do |slices|
+          Thread.current[:speaks_for] = _speaks_for
           # 'slices' is really [[slice, role], ...]
           current_sms = {}
           self._slice_memberships.each do |sm|
