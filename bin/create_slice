@@ -94,7 +94,7 @@ end
 
 
 
-uri = URI.parse(url + '/users/' + user + '/slice_members')
+uri = URI.parse(url + '/users/' + user + '/slice_memberships')
 
 slice = {
   #_request_id: UUID.new.generate,
