@@ -43,7 +43,7 @@ module OMF::SliceService
     end
 
     def modify_resource(resource, description, opts)
-      sm = opts[:contexts][:slice_members]
+      sm = opts[:contexts][:slice_memberships]
       Thread.current[:slice_member] = sm
       super
     end
