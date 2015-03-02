@@ -9,8 +9,15 @@ require 'base64'
 require 'net/http'
 require 'open-uri'
 require 'uuid'
+require 'pstore'
 
 $verbose = false
+
+cookies = PStore.new("omf-slice-service.cookies")
+
+cookie = cookies.transaction do
+  cookies[:speaks_for]
+end
 
 slice_name = nil
 user = nil
@@ -94,7 +101,7 @@ end
 
 
 
-uri = URI.parse(url + '/users/' + user + '/slice_members')
+uri = URI.parse(url + '/users/' + user + '/slice_memberships')
 
 slice = {
   #_request_id: UUID.new.generate,
@@ -110,8 +117,8 @@ if $verbose
   puts JSON.pretty_generate(slice)
 end
 
-def make_request(uri, body)
-  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+def make_request(uri, body, cookie)
+  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json', 'Cookie' => cookie })
 #req.basic_auth @user, @pass
   req.body = body
   response = Net::HTTP.new(uri.host, uri.port).start {|http| http.request(req) }
@@ -122,10 +129,10 @@ def make_request(uri, body)
     delay = 10 if delay < 10
     puts ".. retry again in - #{delay}"
     sleep delay
-    return make_request(uri, body)
+    return make_request(uri, body, cookie)
   end
   puts "#{response.code} #{response.message}:\n#{response.body}"
 end
 
-make_request(uri, JSON.pretty_generate(slice))
+make_request(uri, JSON.pretty_generate(slice), cookie)
 

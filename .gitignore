@@ -4,6 +4,7 @@ Gemfile.lock
 .rvmrc
 .bundle/
 .idea/
+*.cookies
 bin/omf_slice_service
 etc/omf-slice-service/certs
 vendor

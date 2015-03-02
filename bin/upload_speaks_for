@@ -6,8 +6,11 @@ require 'optparse'
 require 'base64'
 require 'net/http'
 require 'open-uri'
+require 'pstore'
 
 $verbose = false
+
+cookies = PStore.new("omf-slice-service.cookies")
 
 user_urn = nil
 speaks_for_file_name = nil
@@ -73,6 +76,10 @@ end
 
 Net::HTTP.new(uri.host, uri.port).post2(uri.path, sf_cred, {'Content-Type' =>'text/xml'}) do |response|
   puts "#{response.code} #{response.message}: #{response.body}"
+  cookie = response['set-cookie'].split('; ')[0]
+  cookies.transaction do
+    cookies[:speaks_for] = cookie
+  end
   exit response.code == 200 ? 0 : -1
 end
 
