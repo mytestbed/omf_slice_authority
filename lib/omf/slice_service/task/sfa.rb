@@ -205,7 +205,7 @@ module OMF::SliceService::Task
         end
         #params[:speaking_for] = speaks_for[:urn]
         # params is an array not a hash
-        params = params.map {|p| (p.is_a?(Hash) && p[:match]) ? p.merge(:speaking_for => speaks_for[:urn]) : p }
+        params = params.map {|p| (p.is_a?(Hash)) ? p.merge(:speaking_for => speaks_for[:urn]) : p }
         if v3_credentials
           certs << {
             geni_type: 'geni_abac',

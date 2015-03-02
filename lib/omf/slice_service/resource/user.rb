@@ -107,8 +107,10 @@ module OMF::SliceService::Resource
             warn "SLICE ALREADY EXISTS - should ask for joining"
             membership = SliceMember.create(slice: slice, user: self, role: role)
           else
+            _speaks_for = Thread.current[:speaks_for]
             Task::CreateSliceForUser(self, {urn: slice_urn, project: project_name}) \
             .on_success do |slice|
+              Thread.current[:speaks_for] = _speaks_for
               #puts ">>> SLICE CREATED(#{slice}) - #{description}"
               sm = SliceMember.create(name: slice_name, slice: slice, user: self, role: role)
               sm.update(description)
@@ -157,7 +159,7 @@ module OMF::SliceService::Resource
       end
       opts = {
         members_to_remove: [self.urn],
-        speaking_for: self.urn # 'urn:publicid:IDN+ch.geni.net+user+maxott'
+        #speaking_for: self.urn # 'urn:publicid:IDN+ch.geni.net+user+maxott'
       }
       slice_urn = slice_member.slice.urn
       OMF::SliceService::SFA.instance.call2(['modify_membership', 'SLICE', slice_urn, :CERTS, opts], self) do |success, res|
