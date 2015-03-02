@@ -16,10 +16,15 @@ slice_name = nil
 user = nil
 project = nil
 role = nil
+speaks_for_file_name = nil
 url = 'http://localhost:8006'
 
 optparse = OptionParser.new do |opts|
   opts.banner = "Usage: #{$0} [options] topoFile"
+
+  opts.on('-sf', '--speaks-for FILE_NAME', 'Name of file containing speaks-for credential ("-" for stdin)' ) do |s|
+    speaks_for_file_name = s
+  end
 
   opts.on('-s', '--slice NAME', 'Name of slice' ) do |n|
     slice_name = n
@@ -43,6 +48,11 @@ optparse = OptionParser.new do |opts|
 end
 optparse.parse!
 
+unless speaks_for_file_name
+  puts "ERROR: Missing speaks-for location\n"
+  puts optparse
+  abort
+end
 unless user
   puts "ERROR: Missing user\n"
   puts optparse
@@ -79,6 +89,16 @@ elsif gf[0] == '<'
   }
 end
 
+if speaks_for_file_name == '-'
+  sf_cred = File.read(STDIN).strip
+else
+  unless File.readable? speaks_for_file_name
+    puts "ERROR: Can't read speaks-for file '#{speaks_for_file_name}'"
+    abort
+  end
+  sf_cred = File.read(speaks_for_file_name).strip
+end
+
 uri = URI.parse(url + '/users/' + user + '/slice_memberships/' + slice_name + '/slice?_level=2')
 req = {
   #_request_id: UUID.new.generate,
@@ -91,8 +111,8 @@ if $verbose
   puts JSON.pretty_generate(req)
 end
 
-def make_request(uri, body)
-  req = Net::HTTP::Post.new(uri.path, {'Content-Type' =>'application/json'})
+def make_request(uri, body, cred)
+  req = Net::HTTP::Post.new(uri.path, cred, {'Content-Type' =>'application/json'})
   #req.basic_auth @user, @pass
   req.body = body
   #req['X-Request-ID'] = request_id
@@ -112,5 +132,5 @@ def make_request(uri, body)
   puts "#{response.code} #{response.message}:\n#{response.body}"
 end
 
-make_request(uri, JSON.pretty_generate(req))
+make_request(uri, JSON.pretty_generate(req), sf_cred)
 

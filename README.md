@@ -119,12 +119,12 @@ credentials with each session.
 It is the later we have implemented. There is no specific authentication step. We use the normal HTTP
 session context for users to upload _speaksFor_ credentials:
 
-    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/_some_tag_ -c cookie_jar.txt -b cookie_jar.txt
+    $ curl -X POST --data-binary @john_speaks_for.xml http://localhost:8006/speaks_fors/urn:publicid:IDN+ch.geni.net+user+john -c cookie_jar.txt -b cookie_jar.txt
 
-The optional "_some_tag_" tag allows for uploading multiple _speaksFor_ credentials to be individually
-selected within a specific call through the HTTP header field __X-SpeaksFor__.
+The "urn:publicid:IDN+ch.geni.net+user+foo" urn tag allows both the for uploading multiple _speaksFor_ credentials to be individually
+selected within a specific call through the HTTP header field __X-SpeaksFor__ and the association of a specific credential to a urn
 
-    $ curl ... -H "X-SpeaksFor: _some_tag_" ...
+    $ curl ... -H "X-SpeaksFor: urn:publicid:IDN+ch.geni.net+user+john" ...
 
 If only one _speaksFor_ is uploaded it is used by default and therefore doesn't require the __X-SpeaksFor__
 header.
@@ -136,7 +136,7 @@ A list of the currently active credentials can be obtained through the following
 return the list of registered tags.
 
     $ curl http://localhost:8006/speaks_fors
-    [ "_some_tag_" ]
+    [ "urn:publicid:IDN+ch.geni.net+user+john" ]
 
 The tag "__default__" is used if only one _speaksFor_ is uploaded and no tag name was provided.
 

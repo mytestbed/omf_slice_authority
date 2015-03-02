@@ -3,7 +3,7 @@ require 'rack/utils'
 
 module OMF::SliceService
   class SpeaksForRack < OMF::Base::LObject
-
+    URN_FORMAT = /\Aurn:publicid:IDN\+ch\.geni\.net\+user\+[a-z]{1,8}\z/.freeze
     def initialize(app, options={})
       @app = app
       @opts = options
@@ -40,6 +40,7 @@ module OMF::SliceService
         end
         urn, speaks_for = session.first
       end
+
       # TODO: Check expiration time
       unless speaks_for[:expires] > (Time.now + 60)
         return [400, {'Content-Type' => 'text'}, 'Speaks-for credential already expired']
@@ -59,7 +60,9 @@ module OMF::SliceService
       case req.request_method
         when 'GET'
           if urn
-            if s = session[urn]
+            if urn !~ URN_FORMAT
+              [400, {"Content-Type" => "text"}, "Invalid 'urn' format"]
+            elsif s = session[urn]
               [200, {'Content-Type' => 'text/xml'}, s[:cred]]
             else
               [400, {"Content-Type" => "text"}, "Unknown credential '#{urn}'"]
@@ -72,8 +75,10 @@ module OMF::SliceService
           end
 
         when 'POST', 'PUT'
-          unless urn
+          if !urn
             return [400, {"Content-Type" => "text"}, "Missing 'urn'"]
+          elsif urn !~ URN_FORMAT
+            return [400, {"Content-Type" => "text"}, "Invalid 'urn' format"]
           end
           body = req.body
           body = body.string if body.is_a?(StringIO)
@@ -101,8 +106,10 @@ module OMF::SliceService
           [200, {'Content-Type' => 'text'}, 'OK']
 
         when 'DELETE'
-          unless urn
+          if !urn
             return [400, {"Content-Type" => "text"}, "Missing 'urn'"]
+          elsif urn !~ URN_FORMAT
+            return [400, {"Content-Type" => "text"}, "Invalid 'urn' format"]
           end
           session.delete urn
           [200, {'Content-Type' => 'text'}, 'OK']
