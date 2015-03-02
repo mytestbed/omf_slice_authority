@@ -47,12 +47,6 @@ module OMF::SliceService
       res_hash
     end
 
-
-    def on_new_resource(resource)
-      # Add the user urn to current speaks_for (no idea if this is the right place for this)
-      Thread.current[:speaks_for][:urn] = resource.urn
-      super
-    end
     # def _dispatch(method, target, resource_uri, opts)
     #   puts ">>>> DISPATC"
     #   RequestContext.exec(opts) do
