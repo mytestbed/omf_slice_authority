@@ -94,7 +94,9 @@ module OMF::SliceService::Resource
       old_slivers = self._slivers.map do |s|
         s.release!(slice_member).on_progress(promise, s.authority.urn)
       end
+      _speaks_for = Thread.current[:speaks_for]
       OMF::SFA::Util::Promise.all(*old_slivers).on_always do |*success|
+        Thread.current[:speaks_for] = _speaks_for
         #puts ">>>>>>>>> OLD DELETED"
         promise.progress "Old slivers cleaned up" unless old_slivers.empty?
         self._slivers.clear

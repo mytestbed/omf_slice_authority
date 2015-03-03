@@ -44,7 +44,9 @@ module OMF::SliceService::Resource
       sliver.slice_member = slice_member # TODO: Security alert
 
       slice.progresses.clear # remove prior sliver progress as we are going to change state
+      _speaks_for = Thread.current[:speaks_for]
       Task::CreateSliver(sliver, rspec, slice_member).on_success do |reply|
+        Thread.current[:speaks_for] = _speaks_for
         sliver.provisioned_at = Time.now
         sliver.progress "Status changed to 'provisioned'"
         sliver.manifest = reply[:manifest]
@@ -56,7 +58,7 @@ module OMF::SliceService::Resource
       end.on_error do |err_code, msg|
         error ">>>>>>>>>>>>>>>>>>>>SLIVER ERRRO >>>> #{msg} - #{err_code}"
         sliver.progress "ERROR: #{msg} - #{err_code}"
-        sliver.status = 'error:' + msg
+        sliver.status = 'error:' + msg.to_s
         sliver.release
       end.on_always do
         sliver.save
@@ -95,7 +97,9 @@ module OMF::SliceService::Resource
       if (Time.now - (self.status_checked_at || 0)).to_i > check_interval
         @status_promise = promise # pending
         self.status_checked_at = Time.now
+        _speaks_for = Thread.current[:speaks_for]
         OMF::SliceService::Task::SliverStatus(self, self.slice_member).on_success do |res|
+          Thread.current[:speaks_for] = _speaks_for
           ready_count = 0
           error_count = 0
           if mf = self.manifest

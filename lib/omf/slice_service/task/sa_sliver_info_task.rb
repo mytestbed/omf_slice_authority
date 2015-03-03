@@ -20,7 +20,9 @@ module OMF::SliceService::Task
 
     def start(slice, slice_member)
       promise = OMF::SFA::Util::Promise.new('SASliverInfoTask')
+      _speaks_for = Thread.current[:speaks_for]
       slice_member.slice_credential.on_success do |slice_credential|
+        Thread.current[:speaks_for] = _speaks_for
         debug "Obtaining sliver info at SA for slice '#{slice}'"
         # struct SliverInfo(string slice_urn,
         #                    string credentials[],

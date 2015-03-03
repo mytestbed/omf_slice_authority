@@ -25,7 +25,9 @@ module OMF::SliceService::Task
       user = slice_member.user
 
       promise = OMF::SFA::Util::Promise.new('CreateSliverTask')
+      _speaks_for = Thread.current[:speaks_for]
       OMF::SFA::Util::Promise.all(slice_member.slice_credential, user.ssh_keys).on_success do |slice_credential, ssh_keys|
+        Thread.current[:speaks_for] = _speaks_for
         debug "Creating a sliver at '#{url}' for slice '#{slice}'"
         # struct CreateSliver(string slice_urn,
         #                     string credentials[],
@@ -44,6 +46,7 @@ module OMF::SliceService::Task
                 debug "Sliver '#{slice.urn}@#{url}' already exist. Need to delete first"
                 promise.progress "Sliver already exists. Need to delete first."
                 OMF::SliceService::Task::DeleteSliver(sliver, slice_member).on_success do |res|
+                  Thread.current[:speaks_for] = _speaks_for
                   debug "Successfully deleted old sliver '#{slice.urn}@#{url}'"
                   # Try again
                   promise.progress "Try again to create sliver."
