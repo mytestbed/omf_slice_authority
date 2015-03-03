@@ -91,13 +91,13 @@ module OMF::SliceService::Resource
       end
       self.slice_creation_pending = true
       # first release all existing slivers
-      old_slivers = self.slivers.map do |s|
+      old_slivers = self._slivers.map do |s|
         s.release!(slice_member).on_progress(promise, s.authority.urn)
       end
       OMF::SFA::Util::Promise.all(*old_slivers).on_always do |*success|
         #puts ">>>>>>>>> OLD DELETED"
         promise.progress "Old slivers cleaned up" unless old_slivers.empty?
-        self.slivers.clear
+        self._slivers.clear
         self.nodes_starting_chef = 0
         self.nodes_finishing_chef = 0
         cms.each do |cm|
@@ -105,7 +105,7 @@ module OMF::SliceService::Resource
           sliver.on_status do |state|
             _check_sliver_progress(sliver, state, promise)
           end
-          self.slivers << sliver
+          self._slivers << sliver
         end
         self.save
         #promise.resolve(self.slivers.to_a)
