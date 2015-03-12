@@ -195,7 +195,7 @@ module OMF::SliceService::Resource
 
     def resources
       r = {}
-      self.slivers.each do |s|
+      self._slivers.each do |s|
         #puts "SLIVER RESOURCES>>>> #{s.resources}"
         r.merge! (s.resources || {})
       end

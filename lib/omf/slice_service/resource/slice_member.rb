@@ -38,7 +38,6 @@ module OMF::SliceService::Resource
     end
 
     def set_topology(topo)
-      Thread.current[:speaking_for] = self.user
       topo = self.slice.set_topology(topo, self)
       puts "SET_TOPO - #{topo.inspect}"
       topo

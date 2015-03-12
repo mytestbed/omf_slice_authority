@@ -92,7 +92,6 @@ module OMF::SliceService::Resource
 
       # Check if it already exists
       self.slice_memberships.on_success do |sma|
-        Thread.current[:speaking_for] = self
         membership = nil
         surn = slice_urn.to_s
         membership = sma.find {|sm| sm.slice.urn == surn }
