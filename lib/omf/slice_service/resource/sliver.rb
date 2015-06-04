@@ -87,7 +87,7 @@ module OMF::SliceService::Resource
     def status(refresh = false)
       promise =  OMF::SFA::Util::Promise.new('SliverStatus')
 
-      return promise.resolve 'provisioning' unless self.provisioned?
+      #return promise.resolve 'provisioning' unless self.provisioned?
       return promise.resolve 'released' if released?
 
       return @status_promise if @status_promise
@@ -125,6 +125,7 @@ module OMF::SliceService::Resource
             #res[:ssh_login] = ssh_login if ssh_login
             #res
           end
+
           self.resources = resources
 
           curr_status = self._status
